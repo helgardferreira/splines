@@ -3,6 +3,7 @@ import "./index.css";
 import {
   BufferGeometry,
   CircleGeometry,
+  Group,
   LineBasicMaterial,
   Mesh,
   MeshBasicMaterial,
@@ -18,7 +19,7 @@ if (!container) throw new Error("Container not found");
 
 const createCircle = (position: Vector2, idx: number) => {
   const circle = new Mesh(
-    new CircleGeometry(0.2, 32),
+    new CircleGeometry(6, 32),
     new MeshBasicMaterial({ color: 0xffffff })
   );
   circle.position.set(position.x, position.y, 0);
@@ -28,27 +29,28 @@ const createCircle = (position: Vector2, idx: number) => {
 };
 
 const spawnLine = ({ scene, camera }: Experience) => {
-  const material = new LineBasicMaterial({
-    color: 0xff0000,
-  });
+  const group = new Group();
 
-  const curve = new LineCurve(new Vector2(-10, 0), new Vector2(0, -10));
+  const curve = new LineCurve(new Vector2(-200, 0), new Vector2(200, 0));
   const numPoints = 2;
 
   const points: Vector2[] = [];
 
   curve.getPoints(numPoints - 1).forEach((point, idx) => {
-    scene.add(createCircle(point, idx));
+    group.add(createCircle(point, idx));
     points.push(point);
   });
 
-  const geometry = new BufferGeometry().setFromPoints(points);
-
-  const line = new LineMesh(geometry, material);
+  const line = new LineMesh(
+    new BufferGeometry().setFromPoints(points),
+    new LineBasicMaterial({
+      color: 0xff0000,
+    })
+  );
   line.name = "line";
+  group.add(line);
 
-  scene.add(line);
-  camera.zoom = 50;
+  scene.add(group);
   camera.updateProjectionMatrix();
 };
 
