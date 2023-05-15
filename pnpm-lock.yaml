@@ -10,6 +10,9 @@ dependencies:
   three:
     specifier: ^0.152.2
     version: 0.152.2
+  wobble:
+    specifier: ^1.5.1
+    version: 1.5.1
   xstate:
     specifier: ^4.37.2
     version: 4.37.2
@@ -373,6 +376,10 @@ packages:
     optionalDependencies:
       fsevents: 2.3.2
     dev: true
+
+  /wobble@1.5.1:
+    resolution: {integrity: sha512-vQD1uu0yXhZWfQJKVf2UVNb3AVnD0qXAbcIqG6Aw02ABLVm77xz6KcLuduWSwOiOMNh8TjZqouZsHTJWTdLwVQ==}
+    dev: false
 
   /xstate@4.37.2:
     resolution: {integrity: sha512-Qm337O49CRTZ3PRyRuK6b+kvI+D3JGxXIZCTul+xEsyFCVkTFDt5jixaL1nBWcUBcaTQ9um/5CRGVItPi7fveg==}

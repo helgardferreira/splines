@@ -16,7 +16,7 @@ import {
 
 import { BasicIntersection, Experience } from "../types";
 import { mapRaycastIntersects } from "../lib/rxjs";
-import { Vector3 } from "three";
+import { Vector2, Vector3 } from "three";
 import { LineMesh } from "../core/LineMesh";
 
 type LineControlsMachineContext = {
@@ -141,14 +141,17 @@ export const addLineControls = (experience: Experience) => {
             const line = currentIntersection.object.parent?.children.find(
               (child) => child.name === "line"
             ) as LineMesh | undefined;
+            const curve = line?.curve;
+            const geometry = line?.geometry;
 
-            if (line) {
-              const posArray = line.geometry.getAttribute("position").array;
-              // @ts-ignore
-              posArray[idx * 3] += panDeltaRef.x;
-              // @ts-ignore
-              posArray[idx * 3 + 1] += panDeltaRef.y;
-              line.geometry.getAttribute("position").needsUpdate = true;
+            if (geometry && curve) {
+              if (idx === 0) {
+                curve.p0.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
+              } else {
+                curve.p1.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
+              }
+              geometry.setFromPoints(curve.getPoints());
+              geometry.getAttribute("position").needsUpdate = true;
             }
           }
         },

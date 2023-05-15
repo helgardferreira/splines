@@ -13,6 +13,17 @@ import { Experience } from "./types";
 import { LineMesh } from "./core/LineMesh";
 import { LineCurve } from "./core/LineCurve";
 import { addLineControls } from "./services/lineControls.machine";
+import {
+  EMPTY,
+  distinctUntilKeyChanged,
+  from,
+  map,
+  switchMap,
+  tap,
+  timer,
+} from "rxjs";
+import { createSpringMachine } from "./services/spring.machine";
+import { interpret } from "xstate";
 
 const container = document.querySelector<HTMLDivElement>("#app");
 if (!container) throw new Error("Container not found");
@@ -29,31 +40,100 @@ const createCircle = (position: Vector2, idx: number, zIndex = 0) => {
 };
 
 const spawnLine =
-  (v1: Vector2, v2: Vector2, zIndex?: number) =>
-  ({ scene, camera }: Experience) => {
+  ({
+    p0,
+    p1,
+    t = 1,
+    zIndex,
+  }: {
+    p0: Vector2;
+    p1: Vector2;
+    t?: number;
+    zIndex?: number;
+  }) =>
+  ({ scene }: Experience) => {
     const group = new Group();
 
-    const curve = new LineCurve(v1, v2);
-    const numPoints = 2;
+    const curve = new LineCurve(p0, p1, t, 2);
 
     const points: Vector2[] = [];
 
-    curve.getPoints(numPoints - 1).forEach((point, idx) => {
-      group.add(createCircle(point, idx, zIndex));
-      points.push(point);
-    });
+    group.add(createCircle(p0, 0, zIndex));
+    group.add(createCircle(p1, 1, zIndex));
+
+    curve.getPoints().forEach((point) => points.push(point));
 
     const line = new LineMesh(
       new BufferGeometry().setFromPoints(points),
       new LineBasicMaterial({
-        color: 0xff0000,
+        color: 0xffffff,
       })
     );
+
     line.name = "line";
+    line.curve = curve;
     group.add(line);
 
     scene.add(group);
-    camera.updateProjectionMatrix();
+
+    return {
+      line,
+    };
+  };
+
+const spawnAnimatedLine =
+  (args: { p0: Vector2; p1: Vector2; zIndex?: number }) =>
+  (experience: Experience) => {
+    const { line } = spawnLine({ ...args, t: 0 })(experience);
+
+    const springService = interpret(
+      createSpringMachine({
+        stiffness: 20,
+        damping: 1,
+        mass: 1,
+        overshootClamping: true,
+        fromValue: 0,
+        toValue: 1,
+      })
+    ).start();
+
+    const spring$ = from(springService);
+
+    spring$
+      .pipe(map(({ context: { currentValue } }) => currentValue))
+      .subscribe((t) => {
+        line.curve!.setT(t);
+        line.geometry.setFromPoints(line.curve!.getPoints());
+      });
+
+    timer(1000)
+      .pipe(
+        tap(() => springService.send({ type: "PLAY" })),
+        switchMap(() =>
+          spring$.pipe(
+            map(({ context: { currentValue }, value }) => ({
+              currentValue,
+              value,
+            }))
+          )
+        ),
+        distinctUntilKeyChanged("value"),
+        switchMap(({ currentValue, value }) => {
+          if (value === "idle") {
+            if (currentValue === 1) {
+              return timer(1000).pipe(
+                tap(() => springService.send({ type: "REWIND" }))
+              );
+            }
+            return timer(1000).pipe(
+              tap(() => springService.send({ type: "PLAY" }))
+            );
+          }
+
+          return EMPTY;
+        })
+      )
+      .subscribe();
   };
 
 const render = ({ renderer, scene, camera }: Experience) => {
@@ -62,12 +142,21 @@ const render = ({ renderer, scene, camera }: Experience) => {
 };
 
 init(container)(
-  spawnLine(new Vector2(-200, 0), new Vector2(200, 0), 0),
-  spawnLine(new Vector2(200, 0), new Vector2(200, 100), 1),
+  spawnLine({
+    p0: new Vector2(-200, 0),
+    p1: new Vector2(200, 0),
+    t: 1,
+    zIndex: 0,
+  }),
+  spawnAnimatedLine({
+    p0: new Vector2(-200, 20),
+    p1: new Vector2(200, 20),
+    zIndex: 2,
+  }),
   render,
   (experience) => {
     addLineControls(experience).subscribe(({ value }) => {
-      console.log(value);
+      // console.log(value);
     });
   }
 );

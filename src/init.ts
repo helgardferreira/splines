@@ -10,7 +10,7 @@ export const init = (container: HTMLElement) => {
     height / 2,
     height / -2,
     1,
-    1000
+    10000
   );
   camera.position.set(0, 0, 1000);
   camera.zoom = 1;

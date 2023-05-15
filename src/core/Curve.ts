@@ -186,7 +186,7 @@ abstract class Curve {
     return data;
   }
 
-  fromJSON(json: { arcLengthDivisions: number }) {
+  fromJSON(json: any) {
     this.arcLengthDivisions = json.arcLengthDivisions;
 
     return this;

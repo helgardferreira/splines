@@ -9,6 +9,7 @@ import {
   Raycaster,
   Intersection,
 } from "three";
+import { LineCurve } from "./LineCurve";
 
 class LineMesh extends Object3D {
   isLine: boolean;
@@ -16,6 +17,7 @@ class LineMesh extends Object3D {
   type: string;
   geometry: BufferGeometry;
   material: LineBasicMaterial;
+  curve?: LineCurve;
 
   protected _inverseMatrix = new Matrix4();
   protected _ray = new Ray();
@@ -95,7 +97,6 @@ class LineMesh extends Object3D {
 
         intersects.push({
           distance: distance,
-          // What do we want? intersection point on the ray or on the segment??
           // point: raycaster.ray.at( distance ),
           point: interSegment.clone().applyMatrix4(this.matrixWorld),
           index: i,
@@ -132,7 +133,6 @@ class LineMesh extends Object3D {
 
         intersects.push({
           distance: distance,
-          // What do we want? intersection point on the ray or on the segment??
           // point: raycaster.ray.at( distance ),
           point: interSegment.clone().applyMatrix4(this.matrixWorld),
           index: i,
