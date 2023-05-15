@@ -1,7 +1,7 @@
-import { Observable, map } from "rxjs";
+import { type Observable, type OperatorFunction, map } from "rxjs";
 
 export const mapNormalizedPointer =
-  (box: DOMRect) =>
+  (box: DOMRect): OperatorFunction<PointerEvent, { x: number; y: number }> =>
   (
     source$: Observable<PointerEvent>
   ): Observable<{

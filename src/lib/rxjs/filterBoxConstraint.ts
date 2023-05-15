@@ -1,7 +1,8 @@
-import { Observable, filter } from "rxjs";
+import { type MonoTypeOperatorFunction, type Observable, filter } from "rxjs";
 
 export const filterBoxConstraint =
-  (box: DOMRect) => (source$: Observable<PointerEvent>) =>
+  (box: DOMRect): MonoTypeOperatorFunction<PointerEvent> =>
+  (source$: Observable<PointerEvent>) =>
     source$.pipe(
       filter((e) => {
         return (

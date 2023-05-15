@@ -1,12 +1,15 @@
-import { Observable, map } from "rxjs";
-import { Raycaster, Vector2 } from "three";
+import { type Observable, type OperatorFunction, map } from "rxjs";
+import { Raycaster, type Vector2 } from "three";
 
 import { filterBoxConstraint, mapNormalizedPointer } from ".";
 
-import { BasicIntersection, Experience } from "../../types";
+import { type BasicIntersection, type Experience } from "../../types";
 
 export const mapRaycastIntersects =
-  (experience: Experience) => (source$: Observable<PointerEvent>) => {
+  (
+    experience: Experience
+  ): OperatorFunction<PointerEvent, BasicIntersection[]> =>
+  (source$: Observable<PointerEvent>) => {
     const {
       renderer: { domElement },
       camera,
