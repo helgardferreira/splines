@@ -17,7 +17,6 @@ import {
 import { PointIntersection, Experience } from "../types";
 import { mapRaycastIntersects } from "../lib/rxjs";
 import { Vector2, Vector3 } from "three";
-import { LineMesh } from "../core/LineMesh";
 import { Point } from "../core/Point";
 
 type LineControlsMachineContext = {
@@ -111,15 +110,13 @@ export const addLineControls = (experience: Experience) => {
           currentIntersection: intersection,
         })),
         enterHover: ({ currentIntersection }) => {
-          if (currentIntersection) {
-            currentIntersection.object.material.color.set(0xff0000);
-          }
+          if (currentIntersection)
+            currentIntersection.object.machine.send({ type: "ENTER_HOVER" });
           document.body.style.cursor = "pointer";
         },
         exitHover: ({ currentIntersection }) => {
-          if (currentIntersection) {
-            currentIntersection.object.material.color.set(0xffffff);
-          }
+          if (currentIntersection)
+            currentIntersection.object.machine.send({ type: "EXIT_HOVER" });
           document.body.style.cursor = "default";
         },
         startPan: ({ panStartRef }, { x, y }) => {
@@ -134,43 +131,55 @@ export const addLineControls = (experience: Experience) => {
           panStartRef.copy(panRef);
 
           if (currentIntersection) {
-            const line = currentIntersection.object.parent?.children.find(
-              (child) => child.name === "line"
-            ) as LineMesh | undefined;
+            const { line, siblings, label, id } =
+              currentIntersection.object.machine.getSnapshot().context;
             const curve = line?.curve;
             const geometry = line?.geometry;
 
-            if (currentIntersection.object.name.startsWith("point-")) {
-              const idx = Number(
-                currentIntersection.object.name.replace("point-", "")
-              );
-              currentIntersection.object.position.add(panDeltaRef);
+            if (label.startsWith("point-") && id !== undefined) {
+              currentIntersection.object.machine.send({
+                type: "ADD_POSITION",
+                delta: panDeltaRef,
+              });
 
               if (geometry && curve) {
-                if (idx === 0) {
+                if (id === 0) {
                   curve.p0.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
                 } else {
                   curve.p1.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
                 }
 
-                currentIntersection.object.parent?.children
-                  .filter((point) => point.name === "bezier-point")
-                  .forEach((point) => {
-                    const { x: pX, y: pY } = curve.getPoint((point as Point).t);
-                    point.position.set(pX, pY, 0);
-                  });
+                if (siblings) {
+                  siblings
+                    .filter(
+                      (point) =>
+                        (point as Point).machine &&
+                        (point as Point).machine.getSnapshot().context.label ===
+                          "bezier-point"
+                    )
+                    .forEach((point) => {
+                      const pointMachine = (point as Point).machine;
+                      const { t } = pointMachine.getSnapshot().context;
+                      const position = curve.getPoint(t);
+                      pointMachine.send({
+                        type: "SET_POSITION",
+                        position,
+                      });
+                    });
+                }
 
                 geometry.setFromPoints(curve.getPoints());
                 geometry.getAttribute("position").needsUpdate = true;
               }
             } else {
               if (geometry && curve) {
-                const {
-                  vector: { x: pX, y: pY },
+                const { vector, t } = curve.getPointOnLine(x, y);
+
+                currentIntersection.object.machine.send({
+                  type: "SET_POSITION",
+                  position: vector,
                   t,
-                } = curve.getPointOnLine(x, y);
-                currentIntersection.object.position.set(pX, pY, 0);
-                currentIntersection.object.t = t;
+                });
               }
             }
           }

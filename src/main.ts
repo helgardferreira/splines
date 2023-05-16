@@ -1,13 +1,6 @@
 import { init } from "./init";
 import "./index.css";
-import {
-  BufferGeometry,
-  CircleGeometry,
-  Group,
-  LineBasicMaterial,
-  MeshBasicMaterial,
-  Vector2,
-} from "three";
+import { BufferGeometry, Group, LineBasicMaterial, Vector2 } from "three";
 import { Experience } from "./types";
 import { LineMesh } from "./core/LineMesh";
 import { LineCurve } from "./core/LineCurve";
@@ -17,31 +10,6 @@ import { Point } from "./core/Point";
 
 const container = document.querySelector<HTMLDivElement>("#app");
 if (!container) throw new Error("Container not found");
-
-const createPoint = ({
-  position,
-  zIndex = 0,
-  idx,
-  label = "point",
-  t,
-}: {
-  position: Vector2;
-  zIndex?: number;
-  idx?: number;
-  label?: string;
-  t?: number;
-}) => {
-  const point = new Point(
-    new CircleGeometry(6, 32),
-    new MeshBasicMaterial({ color: 0xffffff }),
-    t
-  );
-  point.position.set(position.x, position.y, zIndex);
-  if (idx !== undefined) point.name = `${label}-${idx}`;
-  else point.name = label;
-
-  return point;
-};
 
 const spawnLine =
   ({
@@ -57,19 +25,9 @@ const spawnLine =
   }) =>
   ({ scene }: Experience) => {
     const group = new Group();
-
     const curve = new LineCurve(p0, p1, t, 2);
 
     const points: Vector2[] = [];
-
-    group.add(
-      createPoint({
-        position: p0,
-        idx: 0,
-        zIndex,
-      })
-    );
-    group.add(createPoint({ position: p1, idx: 1, zIndex }));
 
     curve.getPoints().forEach((point) => points.push(point));
 
@@ -80,17 +38,29 @@ const spawnLine =
       })
     );
 
-    const bezierPoint = createPoint({
+    line.name = "line";
+    line.curve = curve;
+    group.add(line);
+
+    Point.create({
+      parent: group,
+      position: p0,
+      zIndex,
+      id: 0,
+    });
+    Point.create({
+      parent: group,
+      position: p1,
+      zIndex,
+      id: 1,
+    });
+    Point.create({
+      parent: group,
       position: lerp(p0, p1, t / 2),
       zIndex: 10,
       label: "bezier-point",
       t: t / 2,
     });
-    group.add(bezierPoint);
-
-    line.name = "line";
-    line.curve = curve;
-    group.add(line);
 
     scene.add(group);
 

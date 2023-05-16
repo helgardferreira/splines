@@ -4,6 +4,7 @@ import { Raycaster, type Vector2 } from "three";
 import { filterBoxConstraint, mapNormalizedPointer } from ".";
 
 import { type PointIntersection, type Experience } from "../../types";
+import { Point } from "../../core/Point";
 
 export const mapRaycastIntersects =
   (
@@ -25,8 +26,8 @@ export const mapRaycastIntersects =
         raycaster.setFromCamera(pointer as Vector2, camera);
         const intersects: PointIntersection[] = raycaster
           .intersectObjects(scene.children)
-          .filter((intersection) =>
-            /point/.test(intersection.object.name)
+          .filter(
+            (intersection) => intersection.object instanceof Point
           ) as PointIntersection[];
 
         return intersects;
