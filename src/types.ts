@@ -1,12 +1,11 @@
 import {
-  type BufferGeometry,
   type Intersection,
-  type Mesh,
-  type MeshBasicMaterial,
   type OrthographicCamera,
   type Scene,
   type WebGLRenderer,
 } from "three";
+
+import { type Point } from "./core/Point";
 
 export type Experience = {
   renderer: WebGLRenderer;
@@ -14,6 +13,4 @@ export type Experience = {
   camera: OrthographicCamera;
 };
 
-export type BasicIntersection = Intersection<
-  Mesh<BufferGeometry, MeshBasicMaterial>
->;
+export type PointIntersection = Intersection<Point>;

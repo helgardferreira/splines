@@ -14,19 +14,20 @@ import {
   shareReplay,
 } from "rxjs";
 
-import { BasicIntersection, Experience } from "../types";
+import { PointIntersection, Experience } from "../types";
 import { mapRaycastIntersects } from "../lib/rxjs";
 import { Vector2, Vector3 } from "three";
 import { LineMesh } from "../core/LineMesh";
+import { Point } from "../core/Point";
 
 type LineControlsMachineContext = {
-  currentIntersection?: BasicIntersection;
+  currentIntersection?: PointIntersection;
   panStartRef: Vector3;
   panRef: Vector3;
   panDeltaRef: Vector3;
 };
 
-type HoverEvent = { type: "HOVER"; intersection: BasicIntersection };
+type HoverEvent = { type: "HOVER"; intersection: PointIntersection };
 type StartPanEvent = { type: "START_PAN"; x: number; y: number };
 type PanEvent = { type: "PAN"; x: number; y: number };
 
@@ -133,25 +134,44 @@ export const addLineControls = (experience: Experience) => {
           panStartRef.copy(panRef);
 
           if (currentIntersection) {
-            const idx = Number(
-              currentIntersection.object.name.replace("circle-", "")
-            );
-            currentIntersection.object.position.add(panDeltaRef);
-
             const line = currentIntersection.object.parent?.children.find(
               (child) => child.name === "line"
             ) as LineMesh | undefined;
             const curve = line?.curve;
             const geometry = line?.geometry;
 
-            if (geometry && curve) {
-              if (idx === 0) {
-                curve.p0.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
-              } else {
-                curve.p1.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
+            if (currentIntersection.object.name.startsWith("point-")) {
+              const idx = Number(
+                currentIntersection.object.name.replace("point-", "")
+              );
+              currentIntersection.object.position.add(panDeltaRef);
+
+              if (geometry && curve) {
+                if (idx === 0) {
+                  curve.p0.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
+                } else {
+                  curve.p1.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
+                }
+
+                currentIntersection.object.parent?.children
+                  .filter((point) => point.name === "bezier-point")
+                  .forEach((point) => {
+                    const { x: pX, y: pY } = curve.getPoint((point as Point).t);
+                    point.position.set(pX, pY, 0);
+                  });
+
+                geometry.setFromPoints(curve.getPoints());
+                geometry.getAttribute("position").needsUpdate = true;
               }
-              geometry.setFromPoints(curve.getPoints());
-              geometry.getAttribute("position").needsUpdate = true;
+            } else {
+              if (geometry && curve) {
+                const {
+                  vector: { x: pX, y: pY },
+                  t,
+                } = curve.getPointOnLine(x, y);
+                currentIntersection.object.position.set(pX, pY, 0);
+                currentIntersection.object.t = t;
+              }
             }
           }
         },
@@ -196,8 +216,8 @@ export const addLineControls = (experience: Experience) => {
               payload instanceof IsPointerDown && payload.value
                 ? of({
                     type: "START_PAN",
-                    x: (payload.data?.clientX ?? 0) / experience.camera.zoom,
-                    y: -(payload.data?.clientY ?? 0) / experience.camera.zoom,
+                    x: (payload.data?.clientX ?? 0) - window.innerWidth / 2,
+                    y: -(payload.data?.clientY ?? 0) + window.innerHeight / 2,
                   } as StartPanEvent)
                 : EMPTY
             )
@@ -209,8 +229,8 @@ export const addLineControls = (experience: Experience) => {
               (event) =>
                 ({
                   type: "PAN",
-                  x: event.clientX / experience.camera.zoom,
-                  y: -event.clientY / experience.camera.zoom,
+                  x: event.clientX - window.innerWidth / 2,
+                  y: -event.clientY + window.innerHeight / 2,
                 } as PanEvent)
             )
           ),

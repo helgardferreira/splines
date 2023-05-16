@@ -3,12 +3,12 @@ import { Raycaster, type Vector2 } from "three";
 
 import { filterBoxConstraint, mapNormalizedPointer } from ".";
 
-import { type BasicIntersection, type Experience } from "../../types";
+import { type PointIntersection, type Experience } from "../../types";
 
 export const mapRaycastIntersects =
   (
     experience: Experience
-  ): OperatorFunction<PointerEvent, BasicIntersection[]> =>
+  ): OperatorFunction<PointerEvent, PointIntersection[]> =>
   (source$: Observable<PointerEvent>) => {
     const {
       renderer: { domElement },
@@ -23,11 +23,11 @@ export const mapRaycastIntersects =
       mapNormalizedPointer(box),
       map((pointer) => {
         raycaster.setFromCamera(pointer as Vector2, camera);
-        const intersects: BasicIntersection[] = raycaster
+        const intersects: PointIntersection[] = raycaster
           .intersectObjects(scene.children)
           .filter((intersection) =>
-            /circle/.test(intersection.object.name)
-          ) as BasicIntersection[];
+            /point/.test(intersection.object.name)
+          ) as PointIntersection[];
 
         return intersects;
       })

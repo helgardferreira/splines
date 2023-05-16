@@ -5,7 +5,6 @@ import {
   CircleGeometry,
   Group,
   LineBasicMaterial,
-  Mesh,
   MeshBasicMaterial,
   Vector2,
 } from "three";
@@ -13,30 +12,35 @@ import { Experience } from "./types";
 import { LineMesh } from "./core/LineMesh";
 import { LineCurve } from "./core/LineCurve";
 import { addLineControls } from "./services/lineControls.machine";
-import {
-  EMPTY,
-  distinctUntilKeyChanged,
-  from,
-  map,
-  switchMap,
-  tap,
-  timer,
-} from "rxjs";
-import { createSpringMachine } from "./services/spring.machine";
-import { interpret } from "xstate";
+import { lerp } from "./math";
+import { Point } from "./core/Point";
 
 const container = document.querySelector<HTMLDivElement>("#app");
 if (!container) throw new Error("Container not found");
 
-const createCircle = (position: Vector2, idx: number, zIndex = 0) => {
-  const circle = new Mesh(
+const createPoint = ({
+  position,
+  zIndex = 0,
+  idx,
+  label = "point",
+  t,
+}: {
+  position: Vector2;
+  zIndex?: number;
+  idx?: number;
+  label?: string;
+  t?: number;
+}) => {
+  const point = new Point(
     new CircleGeometry(6, 32),
-    new MeshBasicMaterial({ color: 0xffffff })
+    new MeshBasicMaterial({ color: 0xffffff }),
+    t
   );
-  circle.position.set(position.x, position.y, zIndex);
-  circle.name = `circle-${idx}`;
+  point.position.set(position.x, position.y, zIndex);
+  if (idx !== undefined) point.name = `${label}-${idx}`;
+  else point.name = label;
 
-  return circle;
+  return point;
 };
 
 const spawnLine =
@@ -58,8 +62,14 @@ const spawnLine =
 
     const points: Vector2[] = [];
 
-    group.add(createCircle(p0, 0, zIndex));
-    group.add(createCircle(p1, 1, zIndex));
+    group.add(
+      createPoint({
+        position: p0,
+        idx: 0,
+        zIndex,
+      })
+    );
+    group.add(createPoint({ position: p1, idx: 1, zIndex }));
 
     curve.getPoints().forEach((point) => points.push(point));
 
@@ -69,6 +79,14 @@ const spawnLine =
         color: 0xffffff,
       })
     );
+
+    const bezierPoint = createPoint({
+      position: lerp(p0, p1, t / 2),
+      zIndex: 10,
+      label: "bezier-point",
+      t: t / 2,
+    });
+    group.add(bezierPoint);
 
     line.name = "line";
     line.curve = curve;
@@ -81,61 +99,6 @@ const spawnLine =
     };
   };
 
-const spawnAnimatedLine =
-  (args: { p0: Vector2; p1: Vector2; zIndex?: number }) =>
-  (experience: Experience) => {
-    const { line } = spawnLine({ ...args, t: 0 })(experience);
-
-    const springService = interpret(
-      createSpringMachine({
-        stiffness: 20,
-        damping: 1,
-        mass: 1,
-        overshootClamping: true,
-        fromValue: 0,
-        toValue: 1,
-      })
-    ).start();
-
-    const spring$ = from(springService);
-
-    spring$
-      .pipe(map(({ context: { currentValue } }) => currentValue))
-      .subscribe((t) => {
-        line.curve!.setT(t);
-        line.geometry.setFromPoints(line.curve!.getPoints());
-      });
-
-    timer(1000)
-      .pipe(
-        tap(() => springService.send({ type: "PLAY" })),
-        switchMap(() =>
-          spring$.pipe(
-            map(({ context: { currentValue }, value }) => ({
-              currentValue,
-              value,
-            }))
-          )
-        ),
-        distinctUntilKeyChanged("value"),
-        switchMap(({ currentValue, value }) => {
-          if (value === "idle") {
-            if (currentValue === 1) {
-              return timer(1000).pipe(
-                tap(() => springService.send({ type: "REWIND" }))
-              );
-            }
-            return timer(1000).pipe(
-              tap(() => springService.send({ type: "PLAY" }))
-            );
-          }
-
-          return EMPTY;
-        })
-      )
-      .subscribe();
-  };
-
 const render = ({ renderer, scene, camera }: Experience) => {
   renderer.render(scene, camera);
   requestAnimationFrame(() => render({ renderer, scene, camera }));
@@ -143,20 +106,17 @@ const render = ({ renderer, scene, camera }: Experience) => {
 
 init(container)(
   spawnLine({
-    p0: new Vector2(-200, 0),
-    p1: new Vector2(200, 0),
+    p0: new Vector2(-100, 0),
+    p1: new Vector2(0, 100),
     t: 1,
     zIndex: 0,
   }),
-  spawnAnimatedLine({
-    p0: new Vector2(-200, 20),
-    p1: new Vector2(200, 20),
-    zIndex: 2,
+  spawnLine({
+    p0: new Vector2(0, 100),
+    p1: new Vector2(100, 0),
+    t: 1,
+    zIndex: 1,
   }),
   render,
-  (experience) => {
-    addLineControls(experience).subscribe(({ value }) => {
-      // console.log(value);
-    });
-  }
+  addLineControls
 );

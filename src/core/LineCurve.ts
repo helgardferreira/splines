@@ -27,8 +27,10 @@ class LineCurve extends Curve {
 
   p0: Vector2;
   p1: Vector2;
-  private pLerp: Vector2;
+
   readonly numPoints: number;
+
+  private pLerp: Vector2;
   private t: number;
 
   constructor(p0 = new Vector2(), p1 = new Vector2(), t = 1, numPoints = 100) {
@@ -57,8 +59,48 @@ class LineCurve extends Curve {
     return this.getPoint(u, target);
   }
 
+  getPointOnLine(
+    x: number,
+    y: number,
+    target = new Vector2()
+  ): {
+    vector: Vector2;
+    t: number;
+  } {
+    /* Funny normal-based jankey solution */
+    /*
+      const constantB = y - (1 / this.gradient) * x;
+      const newX =
+        (this.gradient * (constantB - this.constant)) / (this.gradient ** 2 - 1);
+      const newY = this.gradient * newX + this.constant;
+    */
+
+    // Formula for calculating the closest point on a line given a separate point
+    const x1 = this.p0.x;
+    const y1 = this.p0.y;
+    const x2 = this.p1.x;
+    const y2 = this.p1.y;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+
+    const t = Math.max(
+      Math.min(((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy), 1),
+      0
+    );
+
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+
+    return {
+      vector: target.set(closestX, closestY),
+      t,
+    };
+  }
+
   getPoints(): Vector2[] {
     this.pLerp = lerp(this.p0, this.p1, this.t);
+
     return super.getPoints(this.numPoints);
   }
 
