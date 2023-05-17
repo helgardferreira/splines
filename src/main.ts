@@ -1,12 +1,9 @@
 import { init } from "./init";
 import "./index.css";
-import { BufferGeometry, Group, LineBasicMaterial, Vector2 } from "three";
+import { Vector2 } from "three";
 import { Experience } from "./types";
-import { LineMesh } from "./core/LineMesh";
-import { LineCurve } from "./core/LineCurve";
 import { addLineControls } from "./services/lineControls.machine";
-import { lerp } from "./math";
-import { Point } from "./core/Point";
+import { Line } from "./core/Line";
 
 const container = document.querySelector<HTMLDivElement>("#app");
 if (!container) throw new Error("Container not found");
@@ -24,49 +21,13 @@ const spawnLine =
     zIndex?: number;
   }) =>
   ({ scene }: Experience) => {
-    const group = new Group();
-    const curve = new LineCurve(p0, p1, t, 2);
-
-    const points: Vector2[] = [];
-
-    curve.getPoints().forEach((point) => points.push(point));
-
-    const line = new LineMesh(
-      new BufferGeometry().setFromPoints(points),
-      new LineBasicMaterial({
-        color: 0xffffff,
-      })
-    );
-
-    line.name = "line";
-    line.curve = curve;
-    group.add(line);
-
-    Point.create({
-      parent: group,
-      position: p0,
+    Line.create({
+      p0,
+      p1,
+      parent: scene,
+      t,
       zIndex,
-      id: 0,
     });
-    Point.create({
-      parent: group,
-      position: p1,
-      zIndex,
-      id: 1,
-    });
-    Point.create({
-      parent: group,
-      position: lerp(p0, p1, t / 2),
-      zIndex: 10,
-      label: "bezier-point",
-      t: t / 2,
-    });
-
-    scene.add(group);
-
-    return {
-      line,
-    };
   };
 
 const render = ({ renderer, scene, camera }: Experience) => {

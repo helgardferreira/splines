@@ -1,25 +1,10 @@
-import {
-  CircleGeometry,
-  MeshBasicMaterial,
-  Mesh,
-  Vector2,
-  Object3D,
-} from "three";
-import {
-  createPointMachine,
-  type PointService,
-} from "../services/point.machine";
-import { interpret } from "xstate";
+import { CircleGeometry, MeshBasicMaterial, Mesh, Object3D } from "three";
+import { type PointActor } from "../services/point.machine";
 
 type PointArgs = {
   geometry?: CircleGeometry;
   material?: MeshBasicMaterial;
   parent?: Object3D;
-  t?: number;
-  position?: Vector2;
-  zIndex?: number;
-  id?: number;
-  label?: string;
 };
 
 export class Point extends Mesh {
@@ -27,17 +12,12 @@ export class Point extends Mesh {
   isPoint = true;
   geometry: CircleGeometry;
   material: MeshBasicMaterial;
-  machine: PointService;
+  machine?: PointActor;
 
   constructor({
     geometry = new CircleGeometry(6, 32),
     material = new MeshBasicMaterial({ color: 0xffffff }),
     parent,
-    t,
-    position,
-    zIndex,
-    id,
-    label,
   }: PointArgs) {
     super(geometry, material);
 
@@ -45,18 +25,11 @@ export class Point extends Mesh {
     this.material = material;
 
     if (parent) parent.add(this);
-
-    this.machine = interpret(
-      createPointMachine({
-        meshRef: this,
-        t,
-        position,
-        zIndex,
-        id,
-        label,
-      })
-    ).start();
   }
+
+  setMachine = (machine: PointActor) => {
+    this.machine = machine;
+  };
 
   static create = (args: PointArgs) => {
     return new Point(args);

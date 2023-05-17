@@ -21,7 +21,7 @@ const isLineCurve = (source: Curve | LineCurve): source is LineCurve => {
   return (source as LineCurve).isLineCurve;
 };
 
-class LineCurve extends Curve {
+export class LineCurve extends Curve {
   isLineCurve = true;
   type = "LineCurve";
 
@@ -139,5 +139,3 @@ class LineCurve extends Curve {
     return this;
   }
 }
-
-export { LineCurve };

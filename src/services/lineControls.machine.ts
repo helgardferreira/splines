@@ -16,8 +16,7 @@ import {
 
 import { PointIntersection, Experience } from "../types";
 import { mapRaycastIntersects } from "../lib/rxjs";
-import { Vector2, Vector3 } from "three";
-import { Point } from "../core/Point";
+import { Vector3 } from "three";
 
 type LineControlsMachineContext = {
   currentIntersection?: PointIntersection;
@@ -111,12 +110,12 @@ export const addLineControls = (experience: Experience) => {
         })),
         enterHover: ({ currentIntersection }) => {
           if (currentIntersection)
-            currentIntersection.object.machine.send({ type: "ENTER_HOVER" });
+            currentIntersection.object.machine?.send({ type: "ENTER_HOVER" });
           document.body.style.cursor = "pointer";
         },
         exitHover: ({ currentIntersection }) => {
           if (currentIntersection)
-            currentIntersection.object.machine.send({ type: "EXIT_HOVER" });
+            currentIntersection.object.machine?.send({ type: "EXIT_HOVER" });
           document.body.style.cursor = "default";
         },
         startPan: ({ panStartRef }, { x, y }) => {
@@ -126,62 +125,17 @@ export const addLineControls = (experience: Experience) => {
           { panStartRef, panRef, panDeltaRef, currentIntersection },
           { x, y }
         ) => {
+          // TODO: remove or re-locate panRef, panDeltaRef, and panStartRef
           panRef.set(x, y, 0);
           panDeltaRef.copy(panRef).sub(panStartRef);
           panStartRef.copy(panRef);
 
           if (currentIntersection) {
-            const { line, siblings, label, id } =
-              currentIntersection.object.machine.getSnapshot().context;
-            const curve = line?.curve;
-            const geometry = line?.geometry;
-
-            if (label.startsWith("point-") && id !== undefined) {
-              currentIntersection.object.machine.send({
-                type: "ADD_POSITION",
-                delta: panDeltaRef,
-              });
-
-              if (geometry && curve) {
-                if (id === 0) {
-                  curve.p0.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
-                } else {
-                  curve.p1.add(new Vector2(panDeltaRef.x, panDeltaRef.y));
-                }
-
-                if (siblings) {
-                  siblings
-                    .filter(
-                      (point) =>
-                        (point as Point).machine &&
-                        (point as Point).machine.getSnapshot().context.label ===
-                          "bezier-point"
-                    )
-                    .forEach((point) => {
-                      const pointMachine = (point as Point).machine;
-                      const { t } = pointMachine.getSnapshot().context;
-                      const position = curve.getPoint(t);
-                      pointMachine.send({
-                        type: "SET_POSITION",
-                        position,
-                      });
-                    });
-                }
-
-                geometry.setFromPoints(curve.getPoints());
-                geometry.getAttribute("position").needsUpdate = true;
-              }
-            } else {
-              if (geometry && curve) {
-                const { vector, t } = curve.getPointOnLine(x, y);
-
-                currentIntersection.object.machine.send({
-                  type: "SET_POSITION",
-                  position: vector,
-                  t,
-                });
-              }
-            }
+            currentIntersection.object.machine?.send({
+              type: "PAN",
+              x,
+              y,
+            });
           }
         },
       },
@@ -206,8 +160,7 @@ export const addLineControls = (experience: Experience) => {
                 new IsIntersecting(
                   intersects.some(
                     (intersection) =>
-                      intersection.object.name ===
-                      currentIntersection?.object.name
+                      intersection.object === currentIntersection?.object
                   )
                 )
             ),

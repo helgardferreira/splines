@@ -1,27 +1,25 @@
-import { InterpreterFrom, assign, createMachine } from "xstate";
-import { Vector2, Vector3 } from "three";
+import { ActorRefFrom, InterpreterFrom, assign, createMachine } from "xstate";
+import { Vector2 } from "three";
 import { Point } from "../core/Point";
-import { LineMesh } from "../core/LineMesh";
+import { sendParent } from "xstate/lib/actions";
 
 type PointMachineContext = {
-  label: string;
+  type: "point" | "bezier-point";
   meshRef: Point;
   t: number;
-  siblings?: (Point | LineMesh)[];
-  line?: LineMesh;
   id?: number;
 };
 
 type EnterHoverEvent = { type: "ENTER_HOVER" };
 type ExitHoverEvent = { type: "EXIT_HOVER" };
 type SetPositionEvent = { type: "SET_POSITION"; position: Vector2; t?: number };
-type AddPositionEvent = { type: "ADD_POSITION"; delta: Vector3 };
+export type PanEvent = { type: "PAN"; x: number; y: number };
 
 type PointMachineEvent =
   | EnterHoverEvent
   | ExitHoverEvent
   | SetPositionEvent
-  | AddPositionEvent;
+  | PanEvent;
 
 type PointMachineArgs = {
   meshRef: Point;
@@ -29,7 +27,7 @@ type PointMachineArgs = {
   position?: Vector2;
   zIndex?: number;
   id?: number;
-  label?: string;
+  type?: "point" | "bezier-point";
 };
 
 export const createPointMachine = ({
@@ -38,11 +36,11 @@ export const createPointMachine = ({
   position = new Vector2(),
   zIndex = 0,
   id,
-  label = "point",
+  type = "point",
 }: PointMachineArgs) =>
   createMachine(
     {
-      /** @xstate-layout N4IgpgJg5mDOIC5QAcD2BLAdgFwHTogBswBiAUQDkAVMgJQH0AJAeQDU6BtABgF1EVUsdNnSpM-EAA9EARgDMAVlwKANCACeiACwAmHbgAcCgJxyA7AoC+ltWix4W7WgEkKAcXIANZ1SZtOvBJoQiJiEtIIMgoyhibmqhqIcjoAbLhaXCk6VjYgdjgkAMpkvgAKzIU+zswU3HxIeYLCouINETIpXMpmXHIy2WqakVwG6Qp92da2GAUAggAi8-TllVTVtYENwc1hbbIKo9HG4-0JQ-3WuZioEHBBM9j3IS3hiAC0MoOyxjHGmZO5fJ4AjEJ47VqgCJaMxfBCKJRaFIpGRaA5ydEYsxTRr2XCOOiuNxg0IQqRJTLpTqmCywxRmXDGJEotEY9FYy5AA */
+      /** @xstate-layout N4IgpgJg5mDOIC5QAcD2BLAdgFwMQGUBRAFQH0AFAeXwElibKA5AbQAYBdRFVWdbdVJi4gAHogCMANlYA6AKwB2VgGZxAJjkAaEAE8JrABwyALHNUaAvhe1oseAIIARRxWp0GLDsLS9+g4WII4nJGcuIAnGbqWroSalY2GDgy6BAANmC4hIzEhABKpAASlABq+WycSCA+fAJCVYHiynLy2noIxmpqMgZy4coKcgnVSdgyxWV5NIwA4lkAGnRFpeVeVTV+9aCNYT19AzHtymqSJqySltYjduMrU7O45Paeldy+dQGIx8YyrKwKBmibS+xgUMmUBjUgMuV0wqAgcG8oyR738DUQAFpxMCguFxDJwudLokbqkMijamjtohQTjjBCZBoTqxjFJJOzJAphrZkhN8tMZhTNp8EMpziZpP1BnTjEYDM0pUMrBYgA */
       id: "point",
 
       tsTypes: {} as import("./point.machine.typegen").Typegen0,
@@ -56,7 +54,7 @@ export const createPointMachine = ({
       context: {
         meshRef,
         t,
-        label: `${label}${id !== undefined ? `-${id}` : ""}`,
+        type,
         id,
       },
 
@@ -78,21 +76,19 @@ export const createPointMachine = ({
               target: "idle",
               actions: "exitHover",
             },
+
+            PAN: {
+              target: "HOVERING",
+              actions: "pan",
+              internal: true,
+            },
           },
         },
       },
 
       on: {
         SET_POSITION: {
-          target: "#point",
-          internal: true,
           actions: "setPosition",
-        },
-
-        ADD_POSITION: {
-          target: "#point",
-          internal: true,
-          actions: "addPosition",
         },
       },
 
@@ -100,15 +96,9 @@ export const createPointMachine = ({
     },
     {
       actions: {
-        createPoint: assign(({ meshRef }) => {
+        createPoint: ({ meshRef }) => {
           meshRef.position.set(position.x, position.y, zIndex);
-          const siblings = meshRef.parent?.children as (Point | LineMesh)[];
-          const line = siblings?.find((child) => child.name === "line") as
-            | LineMesh
-            | undefined;
-
-          return { line, siblings };
-        }),
+        },
         enterHover: ({ meshRef }) => {
           meshRef.material.color.set(0xff0000);
         },
@@ -124,9 +114,15 @@ export const createPointMachine = ({
 
           return {};
         }),
-        addPosition: ({ meshRef }, { delta }) => {
-          meshRef.position.add(delta);
-        },
+        pan: sendParent(({ type }, { x, y }) => {
+          if (type === "bezier-point") {
+            return { type: "PAN_BEZIER", x, y };
+          }
+          if (id === 0) {
+            return { type: "PAN_START", x, y };
+          }
+          return { type: "PAN_END", x, y };
+        }),
       },
     }
   );
@@ -134,3 +130,4 @@ export const createPointMachine = ({
 export type PointService = InterpreterFrom<
   ReturnType<typeof createPointMachine>
 >;
+export type PointActor = ActorRefFrom<ReturnType<typeof createPointMachine>>;

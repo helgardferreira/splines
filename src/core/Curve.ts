@@ -12,7 +12,7 @@ type CurveJSON = {
   type?: string;
 };
 
-abstract class Curve {
+export abstract class Curve {
   type: string;
   arcLengthDivisions: number;
   cacheArcLengths?: number[];
@@ -192,5 +192,3 @@ abstract class Curve {
     return this;
   }
 }
-
-export { Curve };

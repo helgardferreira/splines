@@ -8,33 +8,53 @@ import {
   Vector3,
   Raycaster,
   Intersection,
+  Vector2,
 } from "three";
-import { LineCurve } from "./LineCurve";
+import { LineService, createLineMachine } from "../services/line.machine";
+import { interpret } from "xstate";
 
-class LineMesh extends Object3D {
-  isLine: boolean;
-  isLineSegments = false;
-  type: string;
-  geometry: BufferGeometry;
-  material: LineBasicMaterial;
-  curve?: LineCurve;
+type LineArgs = {
+  p0: Vector2;
+  p1: Vector2;
+  material?: LineBasicMaterial;
+  parent?: Object3D;
+  t?: number;
+  zIndex?: number;
+};
+
+export class Line extends Object3D {
+  isLine = true;
+  type = "Line";
+
+  geometry!: BufferGeometry;
+  material!: LineBasicMaterial;
+  machine: LineService;
 
   protected _inverseMatrix = new Matrix4();
   protected _ray = new Ray();
   protected _sphere = new Sphere();
 
-  constructor(
-    geometry = new BufferGeometry(),
-    material = new LineBasicMaterial()
-  ) {
+  constructor({
+    p0,
+    p1,
+    material = new LineBasicMaterial(),
+    parent,
+    t,
+    zIndex,
+  }: LineArgs) {
     super();
 
-    this.isLine = true;
-
-    this.type = "Line";
-
-    this.geometry = geometry;
-    this.material = material;
+    this.machine = interpret(
+      createLineMachine({
+        lineRef: this,
+        p0,
+        p1,
+        material,
+        parent,
+        t,
+        zIndex,
+      })
+    ).start();
   }
 
   raycast(raycaster: Raycaster, intersects: Intersection[]) {
@@ -63,7 +83,8 @@ class LineMesh extends Object3D {
     const vEnd = new Vector3();
     const interSegment = new Vector3();
     const interRay = new Vector3();
-    const step = this.isLineSegments ? 2 : 1;
+    // const step = this.isLineSegments ? 2 : 1;
+    const step = 1;
 
     const index = geometry.index;
     const attributes = geometry.attributes;
@@ -152,6 +173,8 @@ class LineMesh extends Object3D {
 
     return this;
   }
-}
 
-export { LineMesh };
+  static create(args: LineArgs) {
+    return new Line(args);
+  }
+}

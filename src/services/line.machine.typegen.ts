@@ -16,11 +16,10 @@
           services: never;
         };
         eventsCausingActions: {
-          "createPoint": "xstate.init";
-"enterHover": "ENTER_HOVER";
-"exitHover": "EXIT_HOVER";
-"pan": "PAN";
-"setPosition": "SET_POSITION";
+          "createLine": "xstate.init";
+"panBezier": "PAN_BEZIER";
+"panEnd": "PAN_END";
+"panStart": "PAN_START";
         };
         eventsCausingDelays: {
           
@@ -31,7 +30,7 @@
         eventsCausingServices: {
           
         };
-        matchesStates: "HOVERING" | "idle";
+        matchesStates: "idle";
         tags: never;
       }
   
