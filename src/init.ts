@@ -26,6 +26,18 @@ export const init = (container: HTMLElement) => {
 
   renderer.render(scene, camera);
 
+  window.addEventListener("resize", () => {
+    const { width, height } = container.getBoundingClientRect();
+
+    camera.left = width / -2;
+    camera.right = width / 2;
+    camera.top = height / 2;
+    camera.bottom = height / -2;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(width, height);
+  });
+
   return (...cbs: ((experience: Experience) => unknown)[]) => {
     for (const cb of cbs) {
       cb({ renderer, scene, camera });

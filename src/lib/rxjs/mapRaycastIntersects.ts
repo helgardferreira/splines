@@ -1,4 +1,11 @@
-import { type Observable, type OperatorFunction, map } from "rxjs";
+import {
+  type Observable,
+  type OperatorFunction,
+  map,
+  combineLatestWith,
+  fromEvent,
+  startWith,
+} from "rxjs";
 import { Raycaster, type Vector2 } from "three";
 
 import { filterBoxConstraint, mapNormalizedPointer } from ".";
@@ -17,11 +24,16 @@ export const mapRaycastIntersects =
       scene,
     } = experience;
     const raycaster = new Raycaster();
-    const box = domElement.getBoundingClientRect();
 
     return source$.pipe(
-      filterBoxConstraint(box),
-      mapNormalizedPointer(box),
+      combineLatestWith(
+        fromEvent<UIEvent>(window, "resize").pipe(
+          startWith(domElement.getBoundingClientRect()),
+          map(() => domElement.getBoundingClientRect())
+        )
+      ),
+      filterBoxConstraint,
+      mapNormalizedPointer,
       map((pointer) => {
         raycaster.setFromCamera(pointer as Vector2, camera);
         const intersects: PointIntersection[] = raycaster

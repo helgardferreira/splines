@@ -1,24 +1,25 @@
 import { type Observable, type OperatorFunction, map } from "rxjs";
 
-export const mapNormalizedPointer =
-  (box: DOMRect): OperatorFunction<PointerEvent, { x: number; y: number }> =>
-  (
-    source$: Observable<PointerEvent>
-  ): Observable<{
-    x: number;
-    y: number;
-  }> =>
-    source$.pipe(
-      map((e) => {
-        // Normalize the mouse position coordinates between -1 and 1
-        const normalizedX =
-          (2 * (e.clientX - box.left)) / (box.right - box.left) - 1;
-        const normalizedY =
-          2 * (1 - (e.clientY - box.top) / (box.bottom - box.top)) - 1;
+export const mapNormalizedPointer: OperatorFunction<
+  [PointerEvent, DOMRect],
+  { x: number; y: number }
+> = (
+  source$: Observable<[PointerEvent, DOMRect]>
+): Observable<{
+  x: number;
+  y: number;
+}> =>
+  source$.pipe(
+    map(([pointerEvent, box]) => {
+      // Normalize the mouse position coordinates between -1 and 1
+      const normalizedX =
+        (2 * (pointerEvent.clientX - box.left)) / (box.right - box.left) - 1;
+      const normalizedY =
+        2 * (1 - (pointerEvent.clientY - box.top) / (box.bottom - box.top)) - 1;
 
-        return {
-          x: normalizedX,
-          y: normalizedY,
-        };
-      })
-    );
+      return {
+        x: normalizedX,
+        y: normalizedY,
+      };
+    })
+  );
