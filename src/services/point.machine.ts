@@ -119,9 +119,9 @@ export const createPointMachine = ({
             return { type: "PAN_BEZIER", x, y };
           }
           if (id === 0) {
-            return { type: "PAN_START", x, y };
+            return { type: "PAN_START_POINT", x, y };
           }
-          return { type: "PAN_END", x, y };
+          return { type: "PAN_END_POINT", x, y };
         }),
       },
     }

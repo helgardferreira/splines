@@ -14,8 +14,7 @@ import { LineService, createLineMachine } from "../services/line.machine";
 import { interpret } from "xstate";
 
 type LineArgs = {
-  p0: Vector2;
-  p1: Vector2;
+  points: Vector2[];
   material?: LineBasicMaterial;
   parent?: Object3D;
   t?: number;
@@ -35,8 +34,7 @@ export class Line extends Object3D {
   protected _sphere = new Sphere();
 
   constructor({
-    p0,
-    p1,
+    points,
     material = new LineBasicMaterial(),
     parent,
     t,
@@ -47,8 +45,7 @@ export class Line extends Object3D {
     this.machine = interpret(
       createLineMachine({
         lineRef: this,
-        p0,
-        p1,
+        points,
         material,
         parent,
         t,

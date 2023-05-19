@@ -10,20 +10,17 @@ if (!container) throw new Error("Container not found");
 
 const spawnLine =
   ({
-    p0,
-    p1,
+    points,
     t = 1,
     zIndex,
   }: {
-    p0: Vector2;
-    p1: Vector2;
+    points: Vector2[];
     t?: number;
     zIndex?: number;
   }) =>
   ({ scene }: Experience) => {
     Line.create({
-      p0,
-      p1,
+      points,
       parent: scene,
       t,
       zIndex,
@@ -37,14 +34,12 @@ const render = ({ renderer, scene, camera }: Experience) => {
 
 init(container)(
   spawnLine({
-    p0: new Vector2(-100, 0),
-    p1: new Vector2(0, 100),
+    points: [new Vector2(-100, 0), new Vector2(0, 100)],
     t: 1,
     zIndex: 0,
   }),
   spawnLine({
-    p0: new Vector2(0, 100),
-    p1: new Vector2(100, 0),
+    points: [new Vector2(0, 100), new Vector2(100, 0)],
     t: 1,
     zIndex: 1,
   }),

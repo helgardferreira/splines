@@ -18,8 +18,8 @@
         eventsCausingActions: {
           "createLine": "xstate.init";
 "panBezier": "PAN_BEZIER";
-"panEnd": "PAN_END";
-"panStart": "PAN_START";
+"panEnd": "PAN_END_POINT";
+"panStart": "PAN_START_POINT";
         };
         eventsCausingDelays: {
           
