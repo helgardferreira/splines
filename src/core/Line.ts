@@ -8,51 +8,38 @@ import {
   Vector3,
   Raycaster,
   Intersection,
-  Vector2,
 } from "three";
-import { LineService, createLineMachine } from "../services/line.machine";
-import { interpret } from "xstate";
+import { LineActor } from "../services/line.machine";
 
 type LineArgs = {
-  points: [Vector2, Vector2];
   material?: LineBasicMaterial;
   parent?: Object3D;
-  t?: number;
-  zIndex?: number;
 };
 
 export class Line extends Object3D {
   isLine = true;
   type = "Line";
 
-  geometry!: BufferGeometry;
-  material!: LineBasicMaterial;
-  machine: LineService;
+  geometry: BufferGeometry;
+  material: LineBasicMaterial;
+  machine?: LineActor;
 
   protected _inverseMatrix = new Matrix4();
   protected _ray = new Ray();
   protected _sphere = new Sphere();
 
-  constructor({
-    points,
-    material = new LineBasicMaterial(),
-    parent,
-    t,
-    zIndex,
-  }: LineArgs) {
+  constructor({ material = new LineBasicMaterial(), parent }: LineArgs) {
     super();
 
-    this.machine = interpret(
-      createLineMachine({
-        lineRef: this,
-        points,
-        material,
-        parent,
-        t,
-        zIndex,
-      })
-    ).start();
+    this.material = material;
+    this.geometry = new BufferGeometry();
+
+    if (parent) parent.add(this);
   }
+
+  setMachine = (machine: LineActor) => {
+    this.machine = machine;
+  };
 
   raycast(raycaster: Raycaster, intersects: Intersection[]) {
     const geometry = this.geometry;

@@ -1,15 +1,16 @@
+import { type Object3D, Group, Vector2 } from "three";
 import {
-  BufferGeometry,
-  Group,
-  LineBasicMaterial,
-  Object3D,
-  Vector2,
-} from "three";
-import { InterpreterFrom, assign, createMachine, spawn } from "xstate";
-import { Line } from "../core/Line";
+  type ActorRefFrom,
+  type InterpreterFrom,
+  assign,
+  createMachine,
+  spawn,
+} from "xstate";
+import { type Line } from "../core/Line";
 import { Point } from "../core/Point";
 import { lerp } from "../math";
-import { PointActor, createPointMachine } from "./point.machine";
+import { type PointActor, createPointMachine } from "./point.machine";
+import { sendParent } from "xstate/lib/actions";
 
 function getPointsOnLine(p0: Vector2, p1: Vector2, numPoints = 100): Vector2[] {
   const points = [];
@@ -56,7 +57,7 @@ function getPointOnLine(
 
 type LineMachineContext = {
   groupRef: Group;
-  lineRef: Line;
+  line: Line;
   p0: Vector2;
   p1: Vector2;
   pLerp: Vector2;
@@ -67,12 +68,16 @@ type LineMachineContext = {
 type PanPointEvent = { type: "PAN_POINT"; x: number; y: number };
 type PanStartEvent = { type: "PAN_START"; x: number; y: number };
 type PanEndEvent = { type: "PAN_END"; x: number; y: number };
-type LineMachineEvent = PanPointEvent | PanStartEvent | PanEndEvent;
+type ScrubBezierEvent = { type: "SCRUB_BEZIER"; t: number };
+type LineMachineEvent =
+  | PanPointEvent
+  | PanStartEvent
+  | PanEndEvent
+  | ScrubBezierEvent;
 
 type LineMachineArgs = {
   points: [Vector2, Vector2];
-  lineRef: Line;
-  material?: LineBasicMaterial;
+  line: Line;
   parent?: Object3D;
   t?: number;
   zIndex?: number;
@@ -80,16 +85,13 @@ type LineMachineArgs = {
 
 export const createLineMachine = ({
   points,
-  lineRef,
-  material = new LineBasicMaterial({
-    color: 0xffffff,
-  }),
+  line,
   parent,
   t: tLine = 1,
 }: LineMachineArgs) =>
   createMachine(
     {
-      /** @xstate-layout N4IgpgJg5mDOIC5QBsCWA7MA6VFlgGIAFAQQDkB9AIQFEAtASRoCUBtABgF1FQAHAe1ioALqn7oeIAB6IAbLKwAOAEzsAzAEZlAVgA0IAJ6I1qrABZ2snQF9r+tJhx5CpSgGUAKiWYeKRAPIMZB4c3EggAkKi4pIyCGbK+kYIyspm5tqaNnYgDti4+MTkFDRkACJ+gcGhkpEiYhLhcdrsWADsamZqbXqGiFqKWNq2Oej8EHCSebWC9TFNiAC0sklLsrb2GPnOM1ENsYgAnIOybYeyij2r8coaWGrah93DI0A */
+      /** @xstate-layout N4IgpgJg5mDOIC5QBsCWA7MA6VFlgGIAFAQQDkB9IgeQEkyAVAbQAYBdRUABwHtZUALqh7pOIAB6IArABYsATgDsANinKATFIA0IAJ6IZARmVYAzFPmnFUgL42daTDjyFSlAMoMSAJWbsxvPxCImKSCFKmWCpqmjr6CKbqLFgyLBq29iCO2Lj4xOQUAKJkACKsHEgggYLCopVhGljKiQAchrF6iOrqcjIR7RkOGDkuBO4Awt4AqgBCFDOFAFq0hd7lAXw1IfUG6nGI7S1YGZnoPBBwYtkbQbWhiAC0yvsIT3ZDTrlgN1t1oGEtOSGGLaTrhQyKMwDOx2IA */
       id: "line",
 
       tsTypes: {} as import("./line.machine.typegen").Typegen0,
@@ -102,7 +104,7 @@ export const createLineMachine = ({
 
       context: {
         groupRef: new Group(),
-        lineRef,
+        line,
         p0: points[0],
         p1: points[1],
         pLerp: points[1].clone(),
@@ -116,7 +118,7 @@ export const createLineMachine = ({
             PAN_POINT: {
               target: "idle",
               internal: true,
-              actions: "panBezier",
+              actions: "panPoint",
             },
 
             PAN_START: {
@@ -129,6 +131,12 @@ export const createLineMachine = ({
               target: "idle",
               internal: true,
               actions: "panEnd",
+            },
+
+            SCRUB_BEZIER: {
+              target: "idle",
+              actions: "scrubBezier",
+              internal: true,
             },
           },
         },
@@ -147,11 +155,9 @@ export const createLineMachine = ({
             curvePoints.push(point)
           );
 
-          const geometry = new BufferGeometry().setFromPoints(curvePoints);
-          lineRef.geometry = geometry;
-          lineRef.material = material;
+          line.geometry.setFromPoints(curvePoints);
 
-          groupRef.add(lineRef);
+          groupRef.add(line);
 
           const bezierPoint = Point.create({
             parent: groupRef,
@@ -172,23 +178,30 @@ export const createLineMachine = ({
             bezierPoint: bezierPointActor,
           };
         }),
-        panBezier: ({ bezierPoint, p0, pLerp }, { x, y }) => {
-          if (bezierPoint) {
-            const { vector, t } = getPointOnLine(p0, pLerp, new Vector2(x, y));
+        panPoint: sendParent(({ p0, pLerp }, { x, y }) => {
+          const { t } = getPointOnLine(p0, pLerp, new Vector2(x, y));
 
+          // bezierPoint.send({
+          //   type: "SET_POSITION",
+          //   position: vector,
+          //   t,
+          // });
+
+          return {
+            type: "SCRUB_BEZIER",
+            t,
+          };
+        }),
+        scrubBezier: ({ bezierPoint, p0, pLerp }, { t }) => {
+          if (bezierPoint) {
             bezierPoint.send({
               type: "SET_POSITION",
-              position: vector,
+              position: lerp(p0, pLerp, t),
               t,
             });
           }
         },
-        panStart: ({ p0, p1, pLerp, lineRef, bezierPoint }, { x, y }) => {
-          // points.start.send({
-          //   type: "SET_POSITION",
-          //   position: new Vector2(x, y),
-          // });
-
+        panStart: ({ p0, p1, pLerp, line, bezierPoint }, { x, y }) => {
           p0.set(x, y);
           lerp(p0, p1, tLine, pLerp);
 
@@ -205,15 +218,10 @@ export const createLineMachine = ({
             }
           }
 
-          lineRef.geometry.setFromPoints(getPointsOnLine(p0, pLerp));
-          lineRef.geometry.getAttribute("position").needsUpdate = true;
+          line.geometry.setFromPoints(getPointsOnLine(p0, pLerp));
+          line.geometry.getAttribute("position").needsUpdate = true;
         },
-        panEnd: ({ p0, p1, pLerp, tLine, lineRef, bezierPoint }, { x, y }) => {
-          // points.end.send({
-          //   type: "SET_POSITION",
-          //   position: new Vector2(x, y),
-          // });
-
+        panEnd: ({ p0, p1, pLerp, tLine, line, bezierPoint }, { x, y }) => {
           p1.set(x, y);
           lerp(p0, p1, tLine, pLerp);
 
@@ -231,11 +239,12 @@ export const createLineMachine = ({
             }
           }
 
-          lineRef.geometry.setFromPoints(getPointsOnLine(p0, pLerp));
-          lineRef.geometry.getAttribute("position").needsUpdate = true;
+          line.geometry.setFromPoints(getPointsOnLine(p0, pLerp));
+          line.geometry.getAttribute("position").needsUpdate = true;
         },
       },
     }
   );
 
 export type LineService = InterpreterFrom<ReturnType<typeof createLineMachine>>;
+export type LineActor = ActorRefFrom<ReturnType<typeof createLineMachine>>;

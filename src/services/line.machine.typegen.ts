@@ -17,9 +17,10 @@
         };
         eventsCausingActions: {
           "createLine": "xstate.init";
-"panBezier": "PAN_POINT";
 "panEnd": "PAN_END";
+"panPoint": "PAN_POINT";
 "panStart": "PAN_START";
+"scrubBezier": "SCRUB_BEZIER";
         };
         eventsCausingDelays: {
           

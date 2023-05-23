@@ -1,8 +1,8 @@
-import { Group, Object3D, Vector2 } from "three";
+import { Group, LineBasicMaterial, Object3D, Vector2 } from "three";
 import { assign, createMachine, spawn } from "xstate";
 import { Line } from "../core/Line";
 import { PointActor, createPointMachine } from "./point.machine";
-import { LineService } from "./line.machine";
+import { LineActor, createLineMachine } from "./line.machine";
 import { Point } from "../core/Point";
 
 type PointRef = {
@@ -11,7 +11,7 @@ type PointRef = {
 };
 
 type LineRef = {
-  ref: LineService;
+  ref: LineActor;
   points: PointRef[];
 };
 
@@ -22,7 +22,8 @@ type LinesMachineContext = {
 };
 
 type PanPointEvent = { type: "PAN_POINT"; x: number; y: number; point: Point };
-type LinesMachineEvent = PanPointEvent;
+type ScrubBezierEvent = { type: "SCRUB_BEZIER"; t: number };
+type LinesMachineEvent = PanPointEvent | ScrubBezierEvent;
 
 type LinesArgs = {
   points: Vector2[];
@@ -57,6 +58,12 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
               internal: true,
               actions: "panPoint",
             },
+
+            SCRUB_BEZIER: {
+              target: "idle",
+              internal: true,
+              actions: "scrubBezier",
+            },
           },
         },
       },
@@ -73,13 +80,25 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
             let line: Line | undefined;
             if (pIdx + 1 < pointsLength) {
               line = Line.create({
-                points: [points[pIdx], points[pIdx + 1]],
                 parent: groupRef,
-                zIndex,
+                material: new LineBasicMaterial({
+                  color: 0xffffff,
+                }),
               });
+              const lineActor = spawn(
+                createLineMachine({
+                  line,
+                  points: [points[pIdx], points[pIdx + 1]],
+                  // Might want to use something else as parent
+                  parent: groupRef,
+                  zIndex,
+                })
+              );
+              line.setMachine(lineActor);
+
               lineRefs.set(line, {
                 points: [],
-                ref: line.machine,
+                ref: lineActor,
               });
             }
 
@@ -148,6 +167,14 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
               }
             }
           }
+        },
+        scrubBezier: ({ lineRefs }, { t }) => {
+          lineRefs.forEach(({ ref }) => {
+            ref.send({
+              type: "SCRUB_BEZIER",
+              t,
+            });
+          });
         },
       },
     }
