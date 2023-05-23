@@ -12,11 +12,7 @@ if (!container) throw new Error("Container not found");
 const spawnLines =
   ({ points, zIndex }: { points: Vector2[]; zIndex?: number }) =>
   ({ scene }: Experience) => {
-    const linesService = interpret(createLinesMachine({ points, zIndex, parent: scene })).start();
-
-    setTimeout(() => {
-      console.log(linesService.getSnapshot().context)
-    }, 1000);
+    interpret(createLinesMachine({ points, zIndex, parent: scene })).start();
   };
 
 const render = ({ renderer, scene, camera }: Experience) => {
@@ -31,6 +27,9 @@ init(container)(
       new Vector2(-100, 100),
       new Vector2(100, 100),
       new Vector2(200, 0),
+      // new Vector2(100, -100),
+      // new Vector2(-100, -100),
+      // new Vector2(-200, 0),
     ],
     zIndex: 0,
   }),

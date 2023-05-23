@@ -190,77 +190,85 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
               }
             }
 
-            let previousBezierRef: PointRef | undefined;
-            let previousBezierPosition: Vector2 | undefined;
-            for (const [_, lineRef] of lineRefs) {
-              const lineContext = lineRef.ref.getSnapshot()?.context;
-              if (lineContext) {
-                const { p0, p1 } = lineContext;
+            const createRecursiveBezier = (lineRefs: Iterable<LineRef>) => {
+              let previousBezierRef: PointRef | undefined;
+              let previousBezierPosition: Vector2 | undefined;
 
-                const bezierPoint = Point.create({
-                  parent: groupRef,
-                });
-                const bezierPosition = lerp(p0, p1, t);
-                const bezierPointActor = spawn(
-                  createPointMachine({
-                    position: bezierPosition,
-                    zIndex: 10,
-                    t,
-                    point: bezierPoint,
-                  }),
-                  { sync: true }
-                );
-                bezierPoint.setMachine(bezierPointActor);
-                const bezierPointRef = {
-                  ref: bezierPointActor,
-                  parentLine: lineRef,
-                  childLines: [] as LineRef[],
-                };
-                bezierPointRefs.set(bezierPoint, bezierPointRef);
+              const nestedLineRefs: LineRef[] = [];
 
-                if (previousBezierRef && previousBezierPosition) {
-                  const line = Line.create({
+              for (const lineRef of lineRefs) {
+                const lineContext = lineRef.ref.getSnapshot()?.context;
+                if (lineContext) {
+                  const { p0, p1 } = lineContext;
+
+                  const bezierPoint = Point.create({
                     parent: groupRef,
-                    material: lineMaterial,
                   });
-                  const lineActor = spawn(
-                    createLineMachine({
-                      line,
-                      points: [previousBezierPosition, bezierPosition],
-                      // Might want to use something else as parent
-                      parent: groupRef,
-                      zIndex,
+                  const bezierPosition = lerp(p0, p1, t);
+                  const bezierPointActor = spawn(
+                    createPointMachine({
+                      position: bezierPosition,
+                      zIndex: 10,
+                      t,
+                      point: bezierPoint,
                     }),
-                    {
-                      sync: true,
-                    }
+                    { sync: true }
                   );
-                  line.setMachine(lineActor);
-
-                  const bezierLineRef = {
-                    points: [previousBezierRef, bezierPointRef],
-                    ref: lineActor,
+                  bezierPoint.setMachine(bezierPointActor);
+                  const bezierPointRef = {
+                    ref: bezierPointActor,
+                    parentLine: lineRef,
+                    childLines: [] as LineRef[],
                   };
-                  bezierLineRefs.set(line, bezierLineRef);
+                  bezierPointRefs.set(bezierPoint, bezierPointRef);
 
-                  bezierPointRef.childLines.push(bezierLineRef);
-                  previousBezierRef.childLines.push(bezierLineRef);
+                  if (previousBezierRef && previousBezierPosition) {
+                    const line = Line.create({
+                      parent: groupRef,
+                      material: lineMaterial,
+                    });
+                    const lineActor = spawn(
+                      createLineMachine({
+                        line,
+                        points: [previousBezierPosition, bezierPosition],
+                        // Might want to use something else as parent
+                        parent: groupRef,
+                        zIndex,
+                      }),
+                      {
+                        sync: true,
+                      }
+                    );
+                    line.setMachine(lineActor);
+
+                    const bezierLineRef = {
+                      points: [previousBezierRef, bezierPointRef],
+                      ref: lineActor,
+                    };
+                    bezierLineRefs.set(line, bezierLineRef);
+                    nestedLineRefs.push(bezierLineRef);
+
+                    bezierPointRef.childLines.push(bezierLineRef);
+                    previousBezierRef.childLines.push(bezierLineRef);
+                  }
+
+                  previousBezierRef = bezierPointRef;
+                  previousBezierPosition = bezierPosition;
                 }
-
-                previousBezierRef = bezierPointRef;
-                previousBezierPosition = bezierPosition;
               }
-            }
+
+              if (nestedLineRefs.length > 0)
+                createRecursiveBezier(nestedLineRefs);
+            };
+
+            createRecursiveBezier(lineRefs.values());
 
             parent.add(groupRef);
 
             return {};
           }
         ),
-        panPoint: (
-          { lineRefs, pointRefs, bezierPointRefs, bezierLineRefs, t },
-          { point, x, y }
-        ) => {
+        panPoint: ({ pointRefs, bezierPointRefs, t }, { point, x, y }) => {
           const pointRef = pointRefs.get(point);
           const bezierPointRef = bezierPointRefs.get(point);
 
@@ -286,37 +294,89 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
                 });
               }
 
-              for (const [bezierPoint, bezierChildRef] of bezierPointRefs) {
-                if (bezierChildRef.parentLine === lineRef) {
-                  const lineContext = lineRef.ref.getSnapshot()?.context;
+              const walkBezierTree = (lineRef: LineRef) => {
+                for (const [bezierPoint, bezierChildRef] of bezierPointRefs) {
+                  if (bezierChildRef.parentLine === lineRef) {
+                    const lineContext = lineRef.ref.getSnapshot()?.context;
 
-                  if (lineContext) {
-                    const { p0, p1 } = lineContext;
-                    const position = lerp(p0, p1, t);
+                    if (lineContext) {
+                      const { p0, p1 } = lineContext;
+                      const position = lerp(p0, p1, t);
 
+                      bezierChildRef.ref.send({
+                        type: "SET_POSITION",
+                        position,
+                      });
+
+                      for (const childLine of bezierChildRef.childLines) {
+                        bezierChildRef.ref;
+
+                        if (childLine.points[0] === bezierChildRef) {
+                          childLine.ref.send({
+                            type: "PAN_START",
+                            x: bezierPoint.position.x,
+                            y: bezierPoint.position.y,
+                          });
+                          walkBezierTree(childLine);
+                        }
+                        if (childLine.points[1] === bezierChildRef) {
+                          childLine.ref.send({
+                            type: "PAN_END",
+                            x: bezierPoint.position.x,
+                            y: bezierPoint.position.y,
+                          });
+                          walkBezierTree(childLine);
+                        }
+                      }
+                    }
+                  }
+                }
+              };
+
+              walkBezierTree(lineRef);
+            }
+          } else if (bezierPointRef && bezierPointRef.parentLine) {
+            const [p0, p1] = bezierPointRef.parentLine.points.map(
+              (pointRef) => pointRef.ref.getSnapshot()?.context?.point?.position
+            );
+            if (p0 && p1) {
+              const { t } = getPointOnLine(
+                new Vector2(p0.x, p0.y),
+                new Vector2(p1.x, p1.y),
+                new Vector2(x, y)
+              );
+
+              for (const [_, bezierChildRef] of bezierPointRefs) {
+                const bezierParentLine = bezierChildRef.parentLine;
+                if (bezierParentLine) {
+                  const [p0, p1] = bezierParentLine.points.map(
+                    (pointRef) =>
+                      pointRef.ref.getSnapshot()?.context?.point?.position
+                  );
+                  if (p0 && p1) {
+                    const position = lerp(
+                      new Vector2(p0.x, p0.y),
+                      new Vector2(p1.x, p1.y),
+                      t
+                    );
                     bezierChildRef.ref.send({
                       type: "SET_POSITION",
                       position,
                     });
 
-                    for (const childLine of bezierChildRef.childLines) {
-                      bezierChildRef.ref;
-                      console.log(childLine.points);
-
-                      if (childLine.points[0] === bezierChildRef) {
-                        console.log("pan start child line");
-                        childLine.ref.send({
+                    for (const lineRef of bezierChildRef.childLines) {
+                      if (lineRef.points[0] === bezierChildRef) {
+                        lineRef.ref.send({
                           type: "PAN_START",
-                          x: bezierPoint.position.x,
-                          y: bezierPoint.position.y,
+                          x: position.x,
+                          y: position.y,
                         });
                       }
-                      if (childLine.points[1] === bezierChildRef) {
-                        console.log("pan end child line");
-                        childLine.ref.send({
+                      if (lineRef.points[1] === bezierChildRef) {
+                        lineRef.ref.send({
                           type: "PAN_END",
-                          x: bezierPoint.position.x,
-                          y: bezierPoint.position.y,
+                          x: position.x,
+                          y: position.y,
                         });
                       }
                     }
