@@ -18,9 +18,7 @@
         eventsCausingActions: {
           "createLine": "xstate.init";
 "panEnd": "PAN_END";
-"panPoint": "PAN_POINT";
 "panStart": "PAN_START";
-"scrubBezier": "SCRUB_BEZIER";
         };
         eventsCausingDelays: {
           
