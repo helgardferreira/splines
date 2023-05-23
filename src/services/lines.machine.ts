@@ -47,28 +47,18 @@ type LineRef = {
   points: PointRef[];
 };
 
-type BezierLineRef = {
-  ref: LineActor;
-  points: Point[];
-};
-
 type PointRef = {
   ref: PointActor;
-  lines: Line[];
-};
-
-type BezierPointRef = {
-  ref: PointActor;
-  parentLine: Line;
-  childLines: Line[];
+  parentLine?: LineRef;
+  childLines: LineRef[];
 };
 
 type LinesMachineContext = {
   groupRef: Group;
   lineRefs: Map<Line, LineRef>;
-  bezierLineRefs: Map<Line, BezierLineRef>;
+  bezierLineRefs: Map<Line, LineRef>;
   pointRefs: Map<Point, PointRef>;
-  bezierPointRefs: Map<Point, BezierPointRef>;
+  bezierPointRefs: Map<Point, PointRef>;
   t: number;
 };
 
@@ -178,26 +168,31 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
                 );
                 point.setMachine(pointActor);
                 const pointRef = {
-                  lines: [] as Line[],
+                  childLines: [] as LineRef[],
                   ref: pointActor,
                 };
                 if (line) {
-                  lineRefs.get(line)?.points.push(pointRef);
-                  pointRef.lines.push(line);
+                  const lineRef = lineRefs.get(line);
+                  if (lineRef) {
+                    lineRef.points.push(pointRef);
+                    pointRef.childLines.push(lineRef);
+                  }
                 }
                 if (previousLine && previousLine !== line) {
-                  lineRefs.get(previousLine)?.points.push(pointRef);
-                  pointRef.lines.push(previousLine);
+                  const lineRef = lineRefs.get(previousLine);
+                  if (lineRef) {
+                    lineRef.points.push(pointRef);
+                    pointRef.childLines.push(lineRef);
+                  }
                 }
                 pointRefs.set(point, pointRef);
                 previousLine = line;
               }
             }
 
-            let previousBezierPoint: Point | undefined;
-            let previousBezierRef: BezierPointRef | undefined;
+            let previousBezierRef: PointRef | undefined;
             let previousBezierPosition: Vector2 | undefined;
-            for (const [line, lineRef] of lineRefs) {
+            for (const [_, lineRef] of lineRefs) {
               const lineContext = lineRef.ref.getSnapshot()?.context;
               if (lineContext) {
                 const { p0, p1 } = lineContext;
@@ -218,16 +213,12 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
                 bezierPoint.setMachine(bezierPointActor);
                 const bezierPointRef = {
                   ref: bezierPointActor,
-                  parentLine: line,
-                  childLines: [] as Line[],
+                  parentLine: lineRef,
+                  childLines: [] as LineRef[],
                 };
                 bezierPointRefs.set(bezierPoint, bezierPointRef);
 
-                if (
-                  previousBezierPoint &&
-                  previousBezierRef &&
-                  previousBezierPosition
-                ) {
+                if (previousBezierRef && previousBezierPosition) {
                   const line = Line.create({
                     parent: groupRef,
                     material: lineMaterial,
@@ -246,16 +237,16 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
                   );
                   line.setMachine(lineActor);
 
-                  bezierLineRefs.set(line, {
-                    points: [previousBezierPoint, bezierPoint],
+                  const bezierLineRef = {
+                    points: [previousBezierRef, bezierPointRef],
                     ref: lineActor,
-                  });
+                  };
+                  bezierLineRefs.set(line, bezierLineRef);
 
-                  bezierPointRef.childLines.push(line);
-                  previousBezierRef.childLines.push(line);
+                  bezierPointRef.childLines.push(bezierLineRef);
+                  previousBezierRef.childLines.push(bezierLineRef);
                 }
 
-                previousBezierPoint = bezierPoint;
                 previousBezierRef = bezierPointRef;
                 previousBezierPosition = bezierPosition;
               }
@@ -279,58 +270,54 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
               position: new Vector2(x, y),
             });
 
-            for (const line of pointRef.lines) {
-              const lineRef = lineRefs.get(line);
-              if (lineRef) {
-                if (lineRef.points[0] === pointRef) {
-                  lineRef.ref.send({
-                    type: "PAN_START",
-                    x,
-                    y,
-                  });
-                }
-                if (lineRef.points[1] === pointRef) {
-                  lineRef.ref.send({
-                    type: "PAN_END",
-                    x,
-                    y,
-                  });
-                }
+            for (const lineRef of pointRef.childLines) {
+              if (lineRef.points[0] === pointRef) {
+                lineRef.ref.send({
+                  type: "PAN_START",
+                  x,
+                  y,
+                });
+              }
+              if (lineRef.points[1] === pointRef) {
+                lineRef.ref.send({
+                  type: "PAN_END",
+                  x,
+                  y,
+                });
+              }
 
-                for (const [bezierPoint, bezierChildRef] of bezierPointRefs) {
-                  if (bezierChildRef.parentLine === line) {
-                    const lineContext = lineRef.ref.getSnapshot()?.context;
+              for (const [bezierPoint, bezierChildRef] of bezierPointRefs) {
+                if (bezierChildRef.parentLine === lineRef) {
+                  const lineContext = lineRef.ref.getSnapshot()?.context;
 
-                    if (lineContext) {
-                      const { p0, p1 } = lineContext;
-                      const position = lerp(p0, p1, t);
+                  if (lineContext) {
+                    const { p0, p1 } = lineContext;
+                    const position = lerp(p0, p1, t);
 
-                      bezierChildRef.ref.send({
-                        type: "SET_POSITION",
-                        position,
-                      });
+                    bezierChildRef.ref.send({
+                      type: "SET_POSITION",
+                      position,
+                    });
 
-                      for (const line of bezierChildRef.childLines) {
-                        const lineRef = bezierLineRefs.get(line);
+                    for (const childLine of bezierChildRef.childLines) {
+                      bezierChildRef.ref;
+                      console.log(childLine.points);
 
-                        if (lineRef) {
-                          bezierChildRef.ref;
-
-                          if (lineRef.points[0] === bezierPoint) {
-                            lineRef.ref.send({
-                              type: "PAN_START",
-                              x: bezierPoint.position.x,
-                              y: bezierPoint.position.y,
-                            });
-                          }
-                          if (lineRef.points[1] === bezierPoint) {
-                            lineRef.ref.send({
-                              type: "PAN_END",
-                              x: bezierPoint.position.x,
-                              y: bezierPoint.position.y,
-                            });
-                          }
-                        }
+                      if (childLine.points[0] === bezierChildRef) {
+                        console.log("pan start child line");
+                        childLine.ref.send({
+                          type: "PAN_START",
+                          x: bezierPoint.position.x,
+                          y: bezierPoint.position.y,
+                        });
+                      }
+                      if (childLine.points[1] === bezierChildRef) {
+                        console.log("pan end child line");
+                        childLine.ref.send({
+                          type: "PAN_END",
+                          x: bezierPoint.position.x,
+                          y: bezierPoint.position.y,
+                        });
                       }
                     }
                   }
