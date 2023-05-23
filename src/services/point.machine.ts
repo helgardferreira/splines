@@ -4,10 +4,8 @@ import { Point } from "../core/Point";
 import { sendParent } from "xstate/lib/actions";
 
 type PointMachineContext = {
-  type: "point" | "bezier-point";
-  meshRef: Point;
+  point: Point;
   t: number;
-  id?: number;
 };
 
 type EnterHoverEvent = { type: "ENTER_HOVER" };
@@ -22,21 +20,18 @@ type PointMachineEvent =
   | PanEvent;
 
 type PointMachineArgs = {
-  meshRef: Point;
+  point: Point;
   t?: number;
   position?: Vector2;
   zIndex?: number;
-  id?: number;
   type?: "point" | "bezier-point";
 };
 
 export const createPointMachine = ({
-  meshRef,
+  point,
   t = 1,
   position = new Vector2(),
   zIndex = 0,
-  id,
-  type = "point",
 }: PointMachineArgs) =>
   createMachine(
     {
@@ -52,10 +47,8 @@ export const createPointMachine = ({
       },
 
       context: {
-        meshRef,
+        point,
         t,
-        type,
-        id,
       },
 
       initial: "idle",
@@ -96,17 +89,17 @@ export const createPointMachine = ({
     },
     {
       actions: {
-        createPoint: ({ meshRef }) => {
-          meshRef.position.set(position.x, position.y, zIndex);
+        createPoint: ({ point }) => {
+          point.position.set(position.x, position.y, zIndex);
         },
-        enterHover: ({ meshRef }) => {
-          meshRef.material.color.set(0xff0000);
+        enterHover: ({ point }) => {
+          point.material.color.set(0xff0000);
         },
-        exitHover: ({ meshRef }) => {
-          meshRef.material.color.set(0xffffff);
+        exitHover: ({ point }) => {
+          point.material.color.set(0xffffff);
         },
-        setPosition: assign(({ meshRef }, { position, t }) => {
-          meshRef.position.set(position.x, position.y, zIndex);
+        setPosition: assign(({ point }, { position, t }) => {
+          point.position.set(position.x, position.y, zIndex);
 
           if (t !== undefined) {
             return { t };
@@ -114,14 +107,13 @@ export const createPointMachine = ({
 
           return {};
         }),
-        pan: sendParent(({ type }, { x, y }) => {
-          if (type === "bezier-point") {
-            return { type: "PAN_BEZIER", x, y };
-          }
-          if (id === 0) {
-            return { type: "PAN_START_POINT", x, y };
-          }
-          return { type: "PAN_END_POINT", x, y };
+        pan: sendParent(({ point }, { x, y }) => {
+          return {
+            type: "PAN_POINT",
+            x,
+            y,
+            point,
+          };
         }),
       },
     }

@@ -14,7 +14,7 @@ import { LineService, createLineMachine } from "../services/line.machine";
 import { interpret } from "xstate";
 
 type LineArgs = {
-  points: Vector2[];
+  points: [Vector2, Vector2];
   material?: LineBasicMaterial;
   parent?: Object3D;
   t?: number;

@@ -61,23 +61,16 @@ type LineMachineContext = {
   p1: Vector2;
   pLerp: Vector2;
   tLine: number;
-  points: {
-    [key: string]: PointActor;
-  };
+  bezierPoint?: PointActor;
 };
 
-type CreatePointEvent = { type: "CREATE_POINT" };
-type PanBezierEvent = { type: "PAN_BEZIER"; x: number; y: number };
-type PanStartPointEvent = { type: "PAN_START_POINT"; x: number; y: number };
-type PanEndPointEvent = { type: "PAN_END_POINT"; x: number; y: number };
-type LineMachineEvent =
-  | CreatePointEvent
-  | PanBezierEvent
-  | PanStartPointEvent
-  | PanEndPointEvent;
+type PanPointEvent = { type: "PAN_POINT"; x: number; y: number };
+type PanStartEvent = { type: "PAN_START"; x: number; y: number };
+type PanEndEvent = { type: "PAN_END"; x: number; y: number };
+type LineMachineEvent = PanPointEvent | PanStartEvent | PanEndEvent;
 
 type LineMachineArgs = {
-  points: Vector2[];
+  points: [Vector2, Vector2];
   lineRef: Line;
   material?: LineBasicMaterial;
   parent?: Object3D;
@@ -93,7 +86,6 @@ export const createLineMachine = ({
   }),
   parent,
   t: tLine = 1,
-  zIndex,
 }: LineMachineArgs) =>
   createMachine(
     {
@@ -111,7 +103,6 @@ export const createLineMachine = ({
       context: {
         groupRef: new Group(),
         lineRef,
-        points: {},
         p0: points[0],
         p1: points[1],
         pLerp: points[1].clone(),
@@ -122,19 +113,19 @@ export const createLineMachine = ({
       states: {
         idle: {
           on: {
-            PAN_BEZIER: {
+            PAN_POINT: {
               target: "idle",
               internal: true,
               actions: "panBezier",
             },
 
-            PAN_START_POINT: {
+            PAN_START: {
               target: "idle",
               internal: true,
               actions: "panStart",
             },
 
-            PAN_END_POINT: {
+            PAN_END: {
               target: "idle",
               internal: true,
               actions: "panEnd",
@@ -162,32 +153,6 @@ export const createLineMachine = ({
 
           groupRef.add(lineRef);
 
-          const startPoint = Point.create({
-            parent: groupRef,
-          });
-          const startPointActor = spawn(
-            createPointMachine({
-              position: points[0],
-              zIndex,
-              id: 0,
-              meshRef: startPoint,
-            })
-          );
-          startPoint.setMachine(startPointActor);
-
-          const endPoint = Point.create({
-            parent: groupRef,
-          });
-          const endPointActor = spawn(
-            createPointMachine({
-              position: points[1],
-              zIndex,
-              id: 1,
-              meshRef: endPoint,
-            })
-          );
-          endPoint.setMachine(endPointActor);
-
           const bezierPoint = Point.create({
             parent: groupRef,
           });
@@ -195,9 +160,8 @@ export const createLineMachine = ({
             createPointMachine({
               position: lerp(points[0], pLerp, 1 / 2),
               zIndex: 10,
-              type: "bezier-point",
               t: 1 / 2,
-              meshRef: bezierPoint,
+              point: bezierPoint,
             })
           );
           bezierPoint.setMachine(bezierPointActor);
@@ -205,64 +169,66 @@ export const createLineMachine = ({
           if (parent) parent.add(groupRef);
 
           return {
-            points: {
-              start: startPointActor,
-              end: endPointActor,
-              bezier: bezierPointActor,
-            },
+            bezierPoint: bezierPointActor,
           };
         }),
-        panBezier: ({ points, p0, pLerp }, { x, y }) => {
-          const { vector, t } = getPointOnLine(p0, pLerp, new Vector2(x, y));
+        panBezier: ({ bezierPoint, p0, pLerp }, { x, y }) => {
+          if (bezierPoint) {
+            const { vector, t } = getPointOnLine(p0, pLerp, new Vector2(x, y));
 
-          points.bezier.send({
-            type: "SET_POSITION",
-            position: vector,
-            t,
-          });
+            bezierPoint.send({
+              type: "SET_POSITION",
+              position: vector,
+              t,
+            });
+          }
         },
-        panStart: ({ p0, p1, pLerp, lineRef, points }, { x, y }) => {
-          points.start.send({
-            type: "SET_POSITION",
-            position: new Vector2(x, y),
-          });
+        panStart: ({ p0, p1, pLerp, lineRef, bezierPoint }, { x, y }) => {
+          // points.start.send({
+          //   type: "SET_POSITION",
+          //   position: new Vector2(x, y),
+          // });
 
           p0.set(x, y);
           lerp(p0, p1, tLine, pLerp);
 
-          const bezierContext = points.bezier.getSnapshot()?.context;
-          if (bezierContext) {
-            const { t } = bezierContext;
-            const position = lerp(p0, pLerp, t);
+          if (bezierPoint) {
+            const bezierContext = bezierPoint.getSnapshot()?.context;
+            if (bezierContext) {
+              const { t } = bezierContext;
+              const position = lerp(p0, pLerp, t);
 
-            points.bezier.send({
-              type: "SET_POSITION",
-              position,
-            });
+              bezierPoint.send({
+                type: "SET_POSITION",
+                position,
+              });
+            }
           }
 
           lineRef.geometry.setFromPoints(getPointsOnLine(p0, pLerp));
           lineRef.geometry.getAttribute("position").needsUpdate = true;
         },
-        panEnd: ({ p0, p1, pLerp, tLine, lineRef, points }, { x, y }) => {
-          points.end.send({
-            type: "SET_POSITION",
-            position: new Vector2(x, y),
-          });
+        panEnd: ({ p0, p1, pLerp, tLine, lineRef, bezierPoint }, { x, y }) => {
+          // points.end.send({
+          //   type: "SET_POSITION",
+          //   position: new Vector2(x, y),
+          // });
 
           p1.set(x, y);
           lerp(p0, p1, tLine, pLerp);
 
-          const bezierContext = points.bezier.getSnapshot()?.context;
-          if (bezierContext) {
-            const { t } = bezierContext;
+          if (bezierPoint) {
+            const bezierContext = bezierPoint.getSnapshot()?.context;
+            if (bezierContext) {
+              const { t } = bezierContext;
 
-            const position = lerp(p0, pLerp, t);
+              const position = lerp(p0, pLerp, t);
 
-            points.bezier.send({
-              type: "SET_POSITION",
-              position,
-            });
+              bezierPoint.send({
+                type: "SET_POSITION",
+                position,
+              });
+            }
           }
 
           lineRef.geometry.setFromPoints(getPointsOnLine(p0, pLerp));

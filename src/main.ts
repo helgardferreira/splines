@@ -3,28 +3,16 @@ import "./index.css";
 import { Vector2 } from "three";
 import { Experience } from "./types";
 import { addLineControls } from "./services/lineControls.machine";
-import { Line } from "./core/Line";
+import { createLinesMachine } from "./services/lines.machine";
+import { interpret } from "xstate";
 
 const container = document.querySelector<HTMLDivElement>("#app");
 if (!container) throw new Error("Container not found");
 
-const spawnLine =
-  ({
-    points,
-    t = 1,
-    zIndex,
-  }: {
-    points: Vector2[];
-    t?: number;
-    zIndex?: number;
-  }) =>
+const spawnLines =
+  ({ points, zIndex }: { points: Vector2[]; zIndex?: number }) =>
   ({ scene }: Experience) => {
-    Line.create({
-      points,
-      parent: scene,
-      t,
-      zIndex,
-    });
+    interpret(createLinesMachine({ points, zIndex, parent: scene })).start();
   };
 
 const render = ({ renderer, scene, camera }: Experience) => {
@@ -33,15 +21,14 @@ const render = ({ renderer, scene, camera }: Experience) => {
 };
 
 init(container)(
-  spawnLine({
-    points: [new Vector2(-100, 0), new Vector2(0, 100)],
-    t: 1,
+  spawnLines({
+    points: [
+      new Vector2(-100, 0),
+      new Vector2(0, 100),
+      new Vector2(100, 100),
+      new Vector2(200, 0),
+    ],
     zIndex: 0,
-  }),
-  spawnLine({
-    points: [new Vector2(0, 100), new Vector2(100, 0)],
-    t: 1,
-    zIndex: 1,
   }),
   render,
   addLineControls

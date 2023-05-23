@@ -23,8 +23,7 @@
           "enterHover": "HOVER" | "done.invoke.lineControls.panning:invocation[0]";
 "exitHover": "done.invoke.lineControls.hovering:invocation[0]";
 "hover": "HOVER";
-"pan": "PAN";
-"startPan": "START_PAN";
+"pan": "PAN" | "START_PAN";
         };
         eventsCausingDelays: {
           

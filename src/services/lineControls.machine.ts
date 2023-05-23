@@ -16,13 +16,9 @@ import {
 
 import { PointIntersection, Experience } from "../types";
 import { mapRaycastIntersects } from "../lib/rxjs";
-import { Vector3 } from "three";
 
 type LineControlsMachineContext = {
   currentIntersection?: PointIntersection;
-  panStartRef: Vector3;
-  panRef: Vector3;
-  panDeltaRef: Vector3;
 };
 
 type HoverEvent = { type: "HOVER"; intersection: PointIntersection };
@@ -38,7 +34,7 @@ export const addLineControls = (experience: Experience) => {
 
   const machine = createMachine(
     {
-      /** @xstate-layout N4IgpgJg5mDOIC5QBsCWA7MBhA9ugLgE47KwB0qEyYAxABIDyAagKIBKA2gAwC6ioABxyxU+VHn4gAHogBMANgCcZLgEYArPPUBmNQBZ5ADi7qANCACeiVQHYbZGwvWrFim3pvy7egL4-zaJi4BMSkZAAWOABuYIQYUDQQeGAU6FE4ANYpgdh4RCTkkTFx6FAIGOkAxgCGYnjcPA2SQiJ16JIyCArKapo6+kYm5lYIhnoONtrahmOy6oZK8tp+ARi5IQUR0bHxNADKACoAgmwHAPoACkcAck1IIC2i4u33nfKyqg6KSuqysoauQw2MyWazGMh-LQGLTyDSqVTLfwgHLBfJhATVdDoXZJTCpdJZMgovKhcgYrHxcppHA1NoNO6CYRPCSvRDvZR6bTA7SuJaKMbyYbWbSyBxOHmqPSKPQKWSI1ZBEmbcnY0o0K63XjNJltDqIYyixQfaVab5Gv5C0afKWuSZ2aVGmZ+JHoHAQOCSYkbUja1rPPUIAC0gtBQfkK2Ra1RpIoVDAvuZL1AnRlltUsLIOnknJsinhskmTqRXrRhW2JSgCd1rIQMs+6i4jZtenUii4shbaYMDi42lUXFmhk0NjGEZLMZV8Sr-prdi4ENUQJmMt0alkacMopbfa4Xkl2gbvmdQA */
+      /** @xstate-layout N4IgpgJg5mDOIC5QBsCWA7MBhA9ugLgE47KwB0qEyYAxABIDyAagKIBKA2gAwC6ioABxyxU+VHn4gAHogBMANgCcZLlwDsADgCMAZllaArPIOKALKYA0IAJ6ItatWUVrjR2acWy1pgwF9fVmiYuATEpGQAFjgAbmCEGFA0EHhgFOjROADWqUHYeEQk5FGx8ehQCBgZAMYAhmJ43DyNkkIi9eiSMggKyqqauvpGJuZWtggapmQGsjqmOhpKOjoGy34BILkhBeHFcQk0AMoAKgCCbEcA+gAKJwByzUggraLiHY9d8vpkDrOqXDpcGajOwaLhkUwuFbzeTqLRaCb+QIYPKhQpkAQ1dDofbJTBpDLZMibfJhcgYrEJCrpHC1dqNB6CYQvCTvRCfZSmLScvQ6eRaLgGLSKYEIAZOSEKWSKZxcDRqWSIjbIrak9GY7FlGg3e68FpM9qdRCg2RkDQLNRcRSggHaEXacHSq3TJSmYzyfzrdA4CBwSTE1GkPVtV6GhAAWnkIojiv923IlGoQeZb1AXVMshFWk+Kl5c3sRg0Bg0zhjypJaN2pSgSYNrIQ6a04ImvMU9m00zUmYhZFk-y0UoHFq48g0peC5fC5I11cez1rqcQDjB8LUgtMoLm5gMmY0JsUK35shWCwFeg9viAA */
       id: "lineControls",
       tsTypes: {} as import("./lineControls.machine.typegen").Typegen0,
       predictableActionArguments: true,
@@ -46,11 +42,7 @@ export const addLineControls = (experience: Experience) => {
         context: {} as LineControlsMachineContext,
         events: {} as LineControlsMachineEvent,
       },
-      context: {
-        panStartRef: new Vector3(),
-        panRef: new Vector3(),
-        panDeltaRef: new Vector3(),
-      },
+      context: {},
       initial: "idle",
       states: {
         idle: {
@@ -75,14 +67,14 @@ export const addLineControls = (experience: Experience) => {
             },
           },
 
+          entry: "enterHover",
+
           on: {
             START_PAN: {
               target: "panning",
-              actions: "startPan",
+              actions: "pan",
             },
           },
-
-          entry: "enterHover",
         },
 
         panning: {
@@ -118,18 +110,7 @@ export const addLineControls = (experience: Experience) => {
             currentIntersection.object.machine?.send({ type: "EXIT_HOVER" });
           document.body.style.cursor = "default";
         },
-        startPan: ({ panStartRef }, { x, y }) => {
-          panStartRef.set(x, y, 0);
-        },
-        pan: (
-          { panStartRef, panRef, panDeltaRef, currentIntersection },
-          { x, y }
-        ) => {
-          // TODO: remove or re-locate panRef, panDeltaRef, and panStartRef
-          panRef.set(x, y, 0);
-          panDeltaRef.copy(panRef).sub(panStartRef);
-          panStartRef.copy(panRef);
-
+        pan: ({ currentIntersection }, { x, y }) => {
           if (currentIntersection) {
             currentIntersection.object.machine?.send({
               type: "PAN",

@@ -16,10 +16,8 @@
           services: never;
         };
         eventsCausingActions: {
-          "createLine": "xstate.init";
-"panBezier": "PAN_POINT";
-"panEnd": "PAN_END";
-"panStart": "PAN_START";
+          "createLines": "PAN_POINT" | "xstate.init";
+"panPoint": "PAN_POINT";
         };
         eventsCausingDelays: {
           
