@@ -38,9 +38,16 @@ export const init = (container: HTMLElement) => {
     renderer.setSize(width, height);
   });
 
-  return (...cbs: ((experience: Experience) => unknown)[]) => {
+  return (...cbs: ((experience: Experience & any) => object | void)[]) => {
+    let middleWareCache = {};
     for (const cb of cbs) {
-      cb({ renderer, scene, camera });
+      const result = cb({
+        renderer,
+        scene,
+        camera,
+        ...middleWareCache,
+      });
+      middleWareCache = result ?? {};
     }
   };
 };

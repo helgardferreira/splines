@@ -35,7 +35,7 @@ export const createPointMachine = ({
 }: PointMachineArgs) =>
   createMachine(
     {
-      /** @xstate-layout N4IgpgJg5mDOIC5QAcD2BLAdgFwMQGUBRAFQH0AFAeXwElibKA5AbQAYBdRFVWdbdVJi4gAHogCMANlYA6AKwB2VgGZxAJjkAaEAE8JrABwyALHNUaAvhe1oseAIIARRxWp0GLDsLS9+g4WII4nJGcuIAnGbqWroSalY2GDgy6BAANmC4hIzEhABKpAASlABq+WycSCA+fAJCVYHiynLy2noIxmpqMgZy4coKcgnVSdgyxWV5NIwA4lkAGnRFpeVeVTV+9aCNYT19AzHtymqSJqySltYjduMrU7O45Paeldy+dQGIx8YyrKwKBmibS+xgUMmUBjUgMuV0wqAgcG8oyR738DUQAFpxMCguFxDJwudLokbqkMijamjtohQTjjBCZBoTqxjFJJOzJAphrZkhN8tMZhTNp8EMpziZpP1BnTjEYDM0pUMrBYgA */
+      /** @xstate-layout N4IgpgJg5mDOIC5QAcD2BLAdgFwMQGUBRAFQH0AFAeXwElibKA5AbQAYBdRFVWdbdVJi4gAHogCMANlYA6AKwB2VgGZxAJjkAaEAE8JrABwyALHNUaAvhe1os2GeggAbMLkKNihAEqkAEpQA1bzZOJBA0Xn5BYTEEcWU5eW09BGM1NRkDOQBOZQU5KxsMHBkAC1QANzAAJywoNwANOj9A4I5hCL4BITDY8TlxTJy8rV1EZTVJE1ZJS2tw4vtyqtrMevIAQRZ2sM6ontBYieMZVlYFA3VRlOVjBRllAzVLufnMVAg4DsXvyO6YxAAWnEyQk2UG2RmcyKdgczjAvy60V6iDuoNSjxkGkmrGMUkkBMkCkKC1hyxqdUR+wBCGUMxM0ly+XRxmMRgMCSZBSsFiAA */
       id: "point",
 
       tsTypes: {} as import("./point.machine.typegen").Typegen0,
@@ -57,13 +57,13 @@ export const createPointMachine = ({
         idle: {
           on: {
             ENTER_HOVER: {
-              target: "HOVERING",
+              target: "hovering",
               actions: ["enterHover"],
             },
           },
         },
 
-        HOVERING: {
+        hovering: {
           on: {
             EXIT_HOVER: {
               target: "idle",
@@ -71,7 +71,7 @@ export const createPointMachine = ({
             },
 
             PAN: {
-              target: "HOVERING",
+              target: "hovering",
               actions: "pan",
               internal: true,
             },

@@ -18,7 +18,7 @@ export class Point extends Mesh {
     geometry = new CircleGeometry(6, 32),
     material = new MeshBasicMaterial({ color: 0xffffff }),
     parent,
-  }: PointArgs) {
+  }: PointArgs = {}) {
     super(geometry, material);
 
     this.geometry = geometry;

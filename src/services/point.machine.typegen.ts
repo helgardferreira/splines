@@ -31,7 +31,7 @@
         eventsCausingServices: {
           
         };
-        matchesStates: "HOVERING" | "idle";
+        matchesStates: "hovering" | "idle";
         tags: never;
       }
   

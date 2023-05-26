@@ -12,10 +12,11 @@ import {
   startWith,
   takeUntil,
   shareReplay,
+  throttleTime,
 } from "rxjs";
 
 import { PointIntersection, Experience } from "../types";
-import { mapRaycastIntersects } from "../lib/rxjs";
+import { mapPointRaycast } from "../lib/rxjs";
 
 type LineControlsMachineContext = {
   currentIntersection?: PointIntersection;
@@ -123,7 +124,7 @@ export const addLineControls = (experience: Experience) => {
       services: {
         waitForHover$: (): Observable<HoverEvent> =>
           pointerMove$.pipe(
-            mapRaycastIntersects(experience),
+            mapPointRaycast(experience),
             switchMap((intersects) => from(intersects)),
             map(
               (intersection) =>
@@ -135,7 +136,7 @@ export const addLineControls = (experience: Experience) => {
           ),
         hover$: ({ currentIntersection }): Observable<StartPanEvent> =>
           pointerMove$.pipe(
-            mapRaycastIntersects(experience),
+            mapPointRaycast(experience),
             map(
               (intersects) =>
                 new IsIntersecting(
@@ -168,6 +169,7 @@ export const addLineControls = (experience: Experience) => {
         pan$: (): Observable<PanEvent> =>
           pointerMove$.pipe(
             takeUntil(fromEvent<PointerEvent>(window, "pointerup")),
+            throttleTime(10, undefined, { trailing: true, leading: true }),
             map(
               (event) =>
                 ({

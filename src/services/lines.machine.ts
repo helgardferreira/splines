@@ -1,42 +1,10 @@
 import { Group, LineBasicMaterial, Object3D, Vector2 } from "three";
-import { assign, createMachine, spawn } from "xstate";
+import { InterpreterFrom, assign, createMachine, spawn } from "xstate";
 import { Line } from "../core/Line";
 import { PointActor, createPointMachine } from "./point.machine";
 import { LineActor, createLineMachine } from "./line.machine";
 import { Point } from "../core/Point";
 import { lerp } from "../math";
-
-function getPointOnLine(
-  p0: Vector2,
-  p1: Vector2,
-  p: Vector2,
-  target = new Vector2()
-): {
-  vector: Vector2;
-  t: number;
-} {
-  // Formula for calculating the closest point on a line given a separate point
-  const x1 = p0.x;
-  const y1 = p0.y;
-  const x2 = p1.x;
-  const y2 = p1.y;
-
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-
-  const t = Math.max(
-    Math.min(((p.x - x1) * dx + (p.y - y1) * dy) / (dx * dx + dy * dy), 1),
-    0
-  );
-
-  const closestX = x1 + t * dx;
-  const closestY = y1 + t * dy;
-
-  return {
-    vector: target.set(closestX, closestY),
-    t,
-  };
-}
 
 const lineMaterial = new LineBasicMaterial({
   color: 0xffffff,
@@ -63,7 +31,8 @@ type LinesMachineContext = {
 };
 
 type PanPointEvent = { type: "PAN_POINT"; x: number; y: number; point: Point };
-type LinesMachineEvent = PanPointEvent;
+type ScrubBeziersEvent = { type: "SCRUB_BEZIERS"; t: number };
+type LinesMachineEvent = PanPointEvent | ScrubBeziersEvent;
 
 type LinesArgs = {
   points: Vector2[];
@@ -100,6 +69,11 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
               target: "idle",
               internal: true,
               actions: "panPoint",
+            },
+            SCRUB_BEZIERS: {
+              target: "idle",
+              internal: true,
+              actions: "scrubBeziers",
             },
           },
         },
@@ -270,7 +244,6 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
         ),
         panPoint: ({ pointRefs, bezierPointRefs, t }, { point, x, y }) => {
           const pointRef = pointRefs.get(point);
-          const bezierPointRef = bezierPointRefs.get(point);
 
           if (pointRef) {
             pointRef.ref.send({
@@ -335,57 +308,56 @@ export const createLinesMachine = ({ points, zIndex, parent }: LinesArgs) =>
 
               walkBezierTree(lineRef);
             }
-          } else if (bezierPointRef && bezierPointRef.parentLine) {
-            const [p0, p1] = bezierPointRef.parentLine.points.map(
-              (pointRef) => pointRef.ref.getSnapshot()?.context?.point?.position
-            );
-            if (p0 && p1) {
-              const { t } = getPointOnLine(
-                new Vector2(p0.x, p0.y),
-                new Vector2(p1.x, p1.y),
-                new Vector2(x, y)
+          }
+        },
+        scrubBeziers: assign(({ bezierPointRefs }, { t }) => {
+          for (const [_, bezierChildRef] of bezierPointRefs) {
+            const bezierParentLine = bezierChildRef.parentLine;
+            if (bezierParentLine) {
+              const [p0, p1] = bezierParentLine.points.map(
+                (pointRef) =>
+                  pointRef.ref.getSnapshot()?.context?.point?.position
               );
+              if (p0 && p1) {
+                const position = lerp(
+                  new Vector2(p0.x, p0.y),
+                  new Vector2(p1.x, p1.y),
+                  t
+                );
+                bezierChildRef.ref.send({
+                  type: "SET_POSITION",
+                  position,
+                  t,
+                });
 
-              for (const [_, bezierChildRef] of bezierPointRefs) {
-                const bezierParentLine = bezierChildRef.parentLine;
-                if (bezierParentLine) {
-                  const [p0, p1] = bezierParentLine.points.map(
-                    (pointRef) =>
-                      pointRef.ref.getSnapshot()?.context?.point?.position
-                  );
-                  if (p0 && p1) {
-                    const position = lerp(
-                      new Vector2(p0.x, p0.y),
-                      new Vector2(p1.x, p1.y),
-                      t
-                    );
-                    bezierChildRef.ref.send({
-                      type: "SET_POSITION",
-                      position,
+                for (const lineRef of bezierChildRef.childLines) {
+                  if (lineRef.points[0] === bezierChildRef) {
+                    lineRef.ref.send({
+                      type: "PAN_START",
+                      x: position.x,
+                      y: position.y,
                     });
-
-                    for (const lineRef of bezierChildRef.childLines) {
-                      if (lineRef.points[0] === bezierChildRef) {
-                        lineRef.ref.send({
-                          type: "PAN_START",
-                          x: position.x,
-                          y: position.y,
-                        });
-                      }
-                      if (lineRef.points[1] === bezierChildRef) {
-                        lineRef.ref.send({
-                          type: "PAN_END",
-                          x: position.x,
-                          y: position.y,
-                        });
-                      }
-                    }
+                  }
+                  if (lineRef.points[1] === bezierChildRef) {
+                    lineRef.ref.send({
+                      type: "PAN_END",
+                      x: position.x,
+                      y: position.y,
+                    });
                   }
                 }
               }
             }
           }
-        },
+
+          return {
+            t,
+          };
+        }),
       },
     }
   );
+
+export type LinesService = InterpreterFrom<
+  ReturnType<typeof createLinesMachine>
+>;

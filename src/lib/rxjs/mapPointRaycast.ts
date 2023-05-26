@@ -13,7 +13,7 @@ import { filterBoxConstraint, mapNormalizedPointer } from ".";
 import { type PointIntersection, type Experience } from "../../types";
 import { Point } from "../../core/Point";
 
-export const mapRaycastIntersects =
+export const mapPointRaycast =
   (
     experience: Experience
   ): OperatorFunction<PointerEvent, PointIntersection[]> =>

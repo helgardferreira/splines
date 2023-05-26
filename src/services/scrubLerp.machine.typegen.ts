@@ -16,9 +16,8 @@
           services: never;
         };
         eventsCausingActions: {
-          "createLines": "PAN_POINT" | "SCRUB_BEZIERS" | "xstate.init";
+          "createLerpScrubber": "PAN_POINT" | "xstate.init";
 "panPoint": "PAN_POINT";
-"scrubBeziers": "SCRUB_BEZIERS";
         };
         eventsCausingDelays: {
           
